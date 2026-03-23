@@ -159,6 +159,16 @@
   .today-dot.not-logged{background:#D4D4D8}
 
   .footer-note{text-align:center;color:var(--sub);font-size:12px;padding-top:8px}
+
+  /* PULL TO REFRESH */
+  .ptr-indicator{
+    text-align:center;overflow:hidden;height:0;
+    transition:height .2s ease;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);
+  }
+  .ptr-indicator.pulling{transition:none}
+  .ptr-spinner{font-size:32px;animation:ptrSpin 1s linear infinite;display:inline-block}
+  @keyframes ptrSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -183,6 +193,7 @@
   </div>
 </div>
 
+<div class="ptr-indicator" id="ptr-indicator"><span class="ptr-spinner">🦛</span></div>
 <div class="content">
 
   <!-- MARCADOR -->
@@ -441,6 +452,46 @@ async function preloadAll() {
   loaded["marcador"] = true;
 }
 preloadAll();
+
+// Pull-to-refresh
+(function() {
+  const ptrEl = document.getElementById("ptr-indicator");
+  const threshold = 60;
+  let ptrStartY = 0, ptrPulling = false, ptrDist = 0;
+
+  document.addEventListener("touchstart", e => {
+    if (window.scrollY === 0) {
+      ptrStartY = e.touches[0].clientY;
+      ptrPulling = true;
+      ptrEl.classList.add("pulling");
+    }
+  }, {passive:true});
+
+  document.addEventListener("touchmove", e => {
+    if (!ptrPulling) return;
+    ptrDist = Math.max(0, e.touches[0].clientY - ptrStartY);
+    if (ptrDist > 0 && window.scrollY === 0) {
+      const h = Math.min(ptrDist * 0.5, 80);
+      ptrEl.style.height = h + "px";
+    }
+  }, {passive:true});
+
+  document.addEventListener("touchend", async () => {
+    if (!ptrPulling) return;
+    ptrPulling = false;
+    ptrEl.classList.remove("pulling");
+    if (ptrDist > threshold && window.scrollY === 0) {
+      ptrEl.style.height = "50px";
+      // Clear caches and re-fetch
+      ["scores","persona_Arturo","persona_Melissa","persona_Majo","persona_Ricky"].forEach(k => localStorage.removeItem(k));
+      allData = null;
+      Object.keys(loaded).forEach(k => delete loaded[k]);
+      await preloadAll();
+    }
+    ptrDist = 0;
+    ptrEl.style.height = "0";
+  }, {passive:true});
+})();
 
 // Service Worker registration
 if ('serviceWorker' in navigator) {
