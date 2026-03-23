@@ -247,6 +247,25 @@ document.querySelectorAll(".tab").forEach(tab => {
   });
 });
 
+// Swipe navigation
+const TAB_ORDER = ["marcador","arturo","melissa","majo","ricky"];
+const contentEl = document.querySelector(".content");
+let swipeStartX = 0, swipeStartY = 0;
+contentEl.addEventListener("touchstart", e => {
+  swipeStartX = e.changedTouches[0].clientX;
+  swipeStartY = e.changedTouches[0].clientY;
+}, {passive:true});
+contentEl.addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  const dy = e.changedTouches[0].clientY - swipeStartY;
+  if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+  const current = TAB_ORDER.findIndex(t => document.getElementById("view-"+t).classList.contains("active"));
+  const next = dx < 0 ? current + 1 : current - 1;
+  if (next < 0 || next >= TAB_ORDER.length) return;
+  document.querySelectorAll(".tab")[next].click();
+  document.querySelectorAll(".tab")[next].scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
+});
+
 function getCached(key) {
   try {
     const raw = localStorage.getItem(key);
