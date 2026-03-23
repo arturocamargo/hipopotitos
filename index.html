@@ -318,6 +318,14 @@ async function loadView(name) {
   }
 }
 
+// Preload all data in parallel on page load
+const PERSONAS = ["Arturo","Melissa","Majo","Ricky"];
+async function preloadAll() {
+  const promises = [fetchData(), ...PERSONAS.map(n => fetchPersona(n))];
+  await Promise.allSettled(promises);
+}
+preloadAll();
+
 // Initial load
 loadView("marcador");
 loaded["marcador"] = true;
