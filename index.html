@@ -94,6 +94,10 @@
   .player-right{text-align:right}
   .player-pts{font-size:26px;font-weight:800;color:var(--p1);line-height:1}
   .player-pts-label{font-size:11px;color:var(--sub)}
+  .trend{font-size:12px;font-weight:700;margin-top:2px}
+  .trend.up{color:#16A34A}
+  .trend.down{color:#DC2626}
+  .trend.flat{color:var(--sub)}
 
   /* BAR */
   .progress-wrap{padding:0 20px 4px}
@@ -328,6 +332,32 @@ async function fetchPersona(nombre) {
   return data;
 }
 
+// Trend: store weekly snapshot every Sunday, compare current vs prev
+function updateWeeklySnapshot(data) {
+  const now = new Date();
+  if (now.getDay() === 0) { // Sunday
+    const existing = localStorage.getItem("scores_prev_week_ts");
+    const today = now.toISOString().split("T")[0];
+    if (existing !== today) {
+      const snap = {};
+      data.forEach(p => snap[p.nombre] = p.puntos);
+      localStorage.setItem("scores_prev_week", JSON.stringify(snap));
+      localStorage.setItem("scores_prev_week_ts", today);
+    }
+  }
+}
+
+function getTrend(nombre, currentPts) {
+  try {
+    const snap = JSON.parse(localStorage.getItem("scores_prev_week"));
+    if (!snap || !(nombre in snap)) return '<span class="trend flat">—</span>';
+    const diff = currentPts - snap[nombre];
+    if (diff > 0) return `<span class="trend up">↑${diff}</span>`;
+    if (diff < 0) return `<span class="trend down">↓${Math.abs(diff)}</span>`;
+    return '<span class="trend flat">—</span>';
+  } catch(e) { return '<span class="trend flat">—</span>'; }
+}
+
 function buildHeatmap(rows) {
   const dayLabels = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
   // Build map of date -> total points
@@ -369,6 +399,7 @@ async function loadView(name) {
   try {
     if (name === "marcador") {
       const data = await fetchData();
+      updateWeeklySnapshot(data);
       const todayStr = new Date().toISOString().split("T")[0];
       const maxPts = Math.max(...data.map(p => p.puntos), 1);
       const html = data.map((p,i) => {
@@ -377,6 +408,7 @@ async function loadView(name) {
         const personaRows = getCached("persona_" + p.nombre);
         const didLogToday = personaRows && personaRows.some(r => r.fecha === todayStr);
         const dotClass = didLogToday ? "logged" : "not-logged";
+        const trend = getTrend(p.nombre, p.puntos);
         return `<div class="player">
           <div class="rank-badge rank-${i+1}">${MEDALS[i]}</div>
           <div class="player-info">
@@ -386,6 +418,7 @@ async function loadView(name) {
           </div>
           <div class="player-right">
             <div class="player-pts">${p.puntos}</div>
+            ${trend}
             <div class="player-pts-label">pts</div>
           </div>
         </div>`;
