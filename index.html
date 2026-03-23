@@ -151,6 +151,11 @@
   .heatmap-legend .heatmap-cell{width:12px;height:12px;flex-shrink:0}
   .hm-0{background:#EDE9FE}.hm-1{background:#A78BFA}.hm-2{background:#7C3AED}.hm-3{background:#6D28D9}.hm-4{background:#4C1D95}
 
+  /* LOGGED TODAY DOT */
+  .today-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle;flex-shrink:0}
+  .today-dot.logged{background:#4ADE80}
+  .today-dot.not-logged{background:#D4D4D8}
+
   .footer-note{text-align:center;color:var(--sub);font-size:12px;padding-top:8px}
 </style>
 </head>
@@ -351,14 +356,18 @@ async function loadView(name) {
   try {
     if (name === "marcador") {
       const data = await fetchData();
+      const todayStr = new Date().toISOString().split("T")[0];
       const maxPts = Math.max(...data.map(p => p.puntos), 1);
       const html = data.map((p,i) => {
         const avg = p.dias > 0 ? (p.puntos/p.dias).toFixed(1) : "0.0";
         const pct = Math.round(p.puntos/maxPts*100);
+        const personaRows = getCached("persona_" + p.nombre);
+        const didLogToday = personaRows && personaRows.some(r => r.fecha === todayStr);
+        const dotClass = didLogToday ? "logged" : "not-logged";
         return `<div class="player">
           <div class="rank-badge rank-${i+1}">${MEDALS[i]}</div>
           <div class="player-info">
-            <div class="player-name">${p.nombre}</div>
+            <div class="player-name">${p.nombre}<span class="today-dot ${dotClass}" title="${didLogToday ? "Loggeó hoy" : "Sin log hoy"}"></span></div>
             <div class="player-meta">${p.dias} días · ${avg} pts/día</div>
             <div class="progress-bar" style="margin-top:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
           </div>
@@ -422,17 +431,14 @@ async function loadView(name) {
   }
 }
 
-// Preload all data in parallel on page load
+// Preload all data in parallel on page load, then render scoreboard
 const PERSONAS = ["Arturo","Melissa","Majo","Ricky"];
 async function preloadAll() {
-  const promises = [fetchData(), ...PERSONAS.map(n => fetchPersona(n))];
-  await Promise.allSettled(promises);
+  await Promise.allSettled([fetchData(), ...PERSONAS.map(n => fetchPersona(n))]);
+  loadView("marcador");
+  loaded["marcador"] = true;
 }
 preloadAll();
-
-// Initial load
-loadView("marcador");
-loaded["marcador"] = true;
 </script>
 </body>
 </html>
