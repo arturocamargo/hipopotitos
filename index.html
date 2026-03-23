@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Reto 🦛">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#6D28D9">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
@@ -439,6 +441,11 @@ async function preloadAll() {
   loaded["marcador"] = true;
 }
 preloadAll();
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
