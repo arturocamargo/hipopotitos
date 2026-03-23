@@ -178,6 +178,7 @@
 const API = "https://script.google.com/macros/s/AKfycbz8K0Dvt8ZqjABXSjYmyuNHhlcvYO-tJNOwHGkPPy0BxsrhRvOGk26Yv4EA5Ra82ptGvg/exec";
 const MEDALS = ["🥇","🥈","🥉","4️⃣"];
 const AVATARS = {Arturo:"🧔🏻",Melissa:"👩🏻",Majo:"👩🏽",Ricky:"👩🏼"};
+const CACHE_TTL = 10 * 60 * 1000; // 10 min
 const loaded = {};
 let allData = null;
 
@@ -210,11 +211,37 @@ document.querySelectorAll(".tab").forEach(tab => {
   });
 });
 
+function getCached(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch(e) { return null; }
+}
+function setCache(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+}
+
 async function fetchData() {
   if (allData) return allData;
+  const cached = getCached("scores");
+  if (cached) { allData = cached; return allData; }
   const res = await fetch(API);
   allData = await res.json();
+  setCache("scores", allData);
   return allData;
+}
+
+async function fetchPersona(nombre) {
+  const key = "persona_" + nombre;
+  const cached = getCached(key);
+  if (cached) return cached;
+  const res = await fetch(API + "?persona=" + nombre + "&json=1");
+  const data = await res.json();
+  setCache(key, data);
+  return data;
 }
 
 async function loadView(name) {
@@ -245,10 +272,8 @@ async function loadView(name) {
       const p = data.find(x => x.nombre === nombre) || {puntos:0, dias:0};
       const avg = p.dias > 0 ? (p.puntos/p.dias).toFixed(1) : "0.0";
 
-      // Fetch personal detailed data
-      const res = await fetch(API + "?persona=" + nombre + "&json=1");
       let rows = [];
-      try { rows = await res.json(); } catch(e) {}
+      try { rows = await fetchPersona(nombre); } catch(e) {}
 
       // Streak calc from rows
       const diasActivos = [...new Set(rows.filter(r=>r.total>0).map(r=>r.fecha))].sort();
