@@ -267,6 +267,25 @@
     80%{transform:scale(.95)}
     100%{transform:scale(1)}
   }
+
+  /* POST-LOG RETURN BANNER */
+  .return-banner{
+    position:fixed;top:0;left:0;right:0;z-index:9000;
+    background:linear-gradient(135deg,#4C1D95,#7C3AED);
+    color:#fff;padding:16px 20px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);
+    transform:translateY(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  }
+  .return-banner.visible{transform:translateY(0)}
+  .return-banner-text{font-size:14px;font-weight:600;flex:1}
+  .return-banner-btns{display:flex;gap:8px;flex-shrink:0}
+  .return-banner-btns button{
+    border:none;border-radius:14px;padding:8px 14px;font-size:13px;font-weight:700;
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+  }
+  .btn-yes{background:#fff;color:var(--p1)}
+  .btn-no{background:rgba(255,255,255,.2);color:#fff}
 </style>
 </head>
 <body>
@@ -330,6 +349,15 @@
   <div class="view" id="view-majo"></div>
   <div class="view" id="view-ricky"></div>
 
+</div>
+
+<!-- RETURN BANNER -->
+<div class="return-banner" id="return-banner">
+  <div class="return-banner-text">¿Acabas de loggear? 🦛</div>
+  <div class="return-banner-btns">
+    <button class="btn-yes" id="return-yes">Sí, actualizar</button>
+    <button class="btn-no" id="return-no">No</button>
+  </div>
 </div>
 
 <!-- FAB -->
@@ -818,6 +846,74 @@ preloadAll();
     else fab.classList.remove("fab-hidden");
     lastScrollY = y;
   }, {passive:true});
+})();
+
+// --- POST-LOG RETURN DETECTION ---
+(function() {
+  const fab = document.getElementById("fab");
+  const logBtn = document.querySelector(".log-btn");
+  const banner = document.getElementById("return-banner");
+  let hiddenAt = 0;
+  let bannerTimeout = null;
+
+  // Track FAB / log button taps
+  function markFabTapped() {
+    localStorage.setItem("fabTapped", Date.now().toString());
+  }
+  fab.addEventListener("click", markFabTapped);
+  if (logBtn) logBtn.addEventListener("click", markFabTapped);
+
+  function isFabRecentlyTapped() {
+    const ts = parseInt(localStorage.getItem("fabTapped") || "0");
+    if (!ts) return false;
+    // Expire after 10 minutes
+    if (Date.now() - ts > 10 * 60 * 1000) {
+      localStorage.removeItem("fabTapped");
+      return false;
+    }
+    return true;
+  }
+
+  function dismissBanner() {
+    banner.classList.remove("visible");
+    if (bannerTimeout) { clearTimeout(bannerTimeout); bannerTimeout = null; }
+    localStorage.removeItem("fabTapped");
+  }
+
+  async function refreshAllData() {
+    banner.querySelector(".btn-yes").textContent = "Cargando…";
+    // Clear caches
+    ["scores","persona_Arturo","persona_Melissa","persona_Majo","persona_Ricky"].forEach(k => localStorage.removeItem(k));
+    allData = null;
+    Object.keys(loaded).forEach(k => delete loaded[k]);
+    animatedTabs && Object.keys(animatedTabs).forEach(k => delete animatedTabs[k]);
+    await preloadAll();
+    // Reload the current active view
+    const activeView = document.querySelector(".view.active");
+    if (activeView) {
+      const viewName = activeView.id.replace("view-","");
+      loaded[viewName] = false;
+      await loadView(viewName);
+      loaded[viewName] = true;
+    }
+    dismissBanner();
+  }
+
+  document.getElementById("return-yes").addEventListener("click", refreshAllData);
+  document.getElementById("return-no").addEventListener("click", dismissBanner);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      hiddenAt = Date.now();
+    } else {
+      const awaySeconds = (Date.now() - hiddenAt) / 1000;
+      if (hiddenAt && awaySeconds > 30 && isFabRecentlyTapped()) {
+        banner.querySelector(".btn-yes").textContent = "Sí, actualizar";
+        banner.classList.add("visible");
+        bannerTimeout = setTimeout(dismissBanner, 8000);
+      }
+    }
+  });
 })();
 
 // Service Worker registration
