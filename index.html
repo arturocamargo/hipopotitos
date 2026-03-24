@@ -232,6 +232,29 @@
     80%{opacity:1}
     100%{transform:translateY(100vh) rotate(var(--rot));opacity:0}
   }
+
+  /* FLOATING ACTION BUTTON */
+  .fab{
+    position:fixed;bottom:28px;right:20px;z-index:100;
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,var(--p1),var(--p2));
+    color:#fff;border:none;border-radius:28px;
+    padding:14px 20px;font-size:15px;font-weight:700;
+    box-shadow:0 6px 24px rgba(109,40,217,.4);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+    transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .25s;
+    text-decoration:none;
+    animation:fabBounce 1s .5s ease both;
+  }
+  .fab:active{transform:scale(.93)!important}
+  .fab.fab-hidden{transform:scale(0);opacity:0;pointer-events:none}
+  .fab-icon{font-size:18px}
+  @keyframes fabBounce{
+    0%{transform:scale(0)}
+    60%{transform:scale(1.12)}
+    80%{transform:scale(.95)}
+    100%{transform:scale(1)}
+  }
 </style>
 </head>
 <body>
@@ -296,6 +319,11 @@
   <div class="view" id="view-ricky"></div>
 
 </div>
+
+<!-- FAB -->
+<a class="fab" id="fab" href="https://docs.google.com/forms/d/e/1FAIpQLSdrtS6kJVcXCTSLwpZysF1rinI-y1htqxG53cIUCZ3Hpw1hjg/viewform">
+  <span class="fab-icon">✏️</span> Loggear
+</a>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbz8K0Dvt8ZqjABXSjYmyuNHhlcvYO-tJNOwHGkPPy0BxsrhRvOGk26Yv4EA5Ra82ptGvg/exec";
@@ -679,6 +707,18 @@ preloadAll();
     ptrEl.style.height = "0";
     ptrEl.style.opacity = "0";
     setTimeout(() => { ptrEl.style.transition = ""; dist = 0; }, 350);
+  }, {passive:true});
+})();
+
+// FAB scroll hide/show
+(function() {
+  const fab = document.getElementById("fab");
+  let lastScrollY = 0;
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    if (y > lastScrollY && y > 60) fab.classList.add("fab-hidden");
+    else fab.classList.remove("fab-hidden");
+    lastScrollY = y;
   }, {passive:true});
 })();
 
