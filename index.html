@@ -130,6 +130,26 @@
   .log-table tr:last-child td{border-bottom:none}
   .pts-pill{display:inline-flex;align-items:center;justify-content:center;background:var(--p1);color:white;border-radius:8px;width:28px;height:24px;font-size:12px;font-weight:700}
 
+  /* EXPANDABLE LOG ROWS */
+  .log-row{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .log-row td:first-child::before{content:"▸ ";color:var(--sub);font-size:10px}
+  .log-row.expanded td:first-child::before{content:"▾ "}
+  .bonus-row{display:none}
+  .bonus-row.visible{display:table-row}
+  .bonus-row td{padding:4px 20px 12px !important;border-bottom:1px solid #FAFAFA !important}
+  .bonus-pills{display:flex;flex-wrap:wrap;gap:6px}
+  .bonus-pill{
+    display:inline-flex;align-items:center;gap:3px;
+    font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;
+    white-space:nowrap;
+  }
+  .bonus-pill.gym{background:#DCFCE7;color:#166534}
+  .bonus-pill.foto{background:#FEF3C7;color:#92400E}
+  .bonus-pill.agua{background:#DBEAFE;color:#1E40AF}
+  .bonus-pill.sueno{background:#EDE9FE;color:#5B21B6}
+  .bonus-pill.pasos{background:#FFE4E6;color:#9F1239}
+  .bonus-pill.default{background:#F3F4F6;color:#374151}
+
   /* EMPTY */
   .empty{text-align:center;padding:40px 20px;color:var(--sub)}
   .empty-icon{font-size:40px;margin-bottom:12px}
@@ -677,6 +697,29 @@ function animateCountUp(container) {
   });
 }
 
+// Bonus parsing
+const BONUS_MAP = {
+  gym:   {emoji:"💪", label:"Gym",   css:"gym"},
+  foto:  {emoji:"📸", label:"Foto",  css:"foto"},
+  agua:  {emoji:"💧", label:"Agua",  css:"agua"},
+  sueño: {emoji:"😴", label:"Sueño", css:"sueno"},
+  sueno: {emoji:"😴", label:"Sueño", css:"sueno"},
+  pasos: {emoji:"👟", label:"Pasos", css:"pasos"},
+};
+function parseBonusPills(bonusStr) {
+  if (!bonusStr) return "";
+  const parts = String(bonusStr).split(/[,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  return parts.map(part => {
+    const key = Object.keys(BONUS_MAP).find(k => part.includes(k));
+    if (key) {
+      const b = BONUS_MAP[key];
+      return `<span class="bonus-pill ${b.css}">${b.emoji} ${b.label}</span>`;
+    }
+    if (part) return `<span class="bonus-pill default">⭐ ${part.charAt(0).toUpperCase()+part.slice(1)}</span>`;
+    return "";
+  }).join("");
+}
+
 async function loadView(name) {
   try {
     if (name === "marcador") {
@@ -725,12 +768,15 @@ async function loadView(name) {
         else break;
       }
 
-      const logRows = rows.slice(-7).reverse().map(r => `
-        <tr>
+      const logRows = rows.slice(-7).reverse().map((r, idx) => {
+        const bonusPills = parseBonusPills(r.bonus);
+        const hasBonus = bonusPills.length > 0;
+        return `<tr class="log-row" data-row="${idx}">
           <td>${r.fecha||""}</td>
           <td style="color:#666">${(r.minutos||"").replace(/\(.*\)/,"").trim()}</td>
           <td><span class="pts-pill">${r.total}</span></td>
-        </tr>`).join("");
+        </tr>${hasBonus ? `<tr class="bonus-row" data-row="${idx}"><td colspan="3"><div class="bonus-pills">${bonusPills}</div></td></tr>` : ""}`;
+      }).join("");
 
       document.getElementById("view-"+name).innerHTML = `
         <div class="persona-header">
@@ -754,6 +800,17 @@ async function loadView(name) {
           : `<div class="empty"><div class="empty-icon">💪</div><p>Sin registros aún.<br>¡El 1 de abril arrancamos!</p></div>`}
         </div>
         <p class="footer-note">Clawdio 🦞 · Actualizado en tiempo real</p>`;
+
+      // Expandable log rows
+      document.getElementById("view-"+name).querySelectorAll(".log-row").forEach(row => {
+        row.addEventListener("click", () => {
+          const idx = row.dataset.row;
+          const bonusRow = row.parentElement.querySelector(`.bonus-row[data-row="${idx}"]`);
+          if (!bonusRow) return;
+          row.classList.toggle("expanded");
+          bonusRow.classList.toggle("visible");
+        });
+      });
 
       // Count-up animation (only first load of this tab)
       if (!animatedTabs[name]) {
