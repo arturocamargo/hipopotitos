@@ -418,6 +418,14 @@
   .bonus-card-name{font-size:var(--font-sm);font-weight:600;color:var(--clr-text)}
   .sh-footnote{font-size:var(--font-xs);color:var(--clr-sub);margin-top:var(--sp-2);font-style:italic}
   .sh-note{font-size:var(--font-xs);color:var(--clr-sub);margin-top:var(--sp-1)}
+  .sh-callout{background:var(--clr-primary-surface);border-radius:var(--r-md);padding:var(--sp-5);text-align:center}
+  .sh-callout-big{font-size:var(--font-2xl);font-weight:900;color:var(--clr-primary)}
+  .sh-callout-note{font-size:var(--font-xs);color:var(--clr-sub);margin-top:var(--sp-1)}
+  .bonus-grid-3{display:flex;flex-direction:column;gap:var(--sp-2)}
+  .bonus-card-wide{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-3);background:var(--clr-surface-muted);border-radius:var(--r-md)}
+  .bonus-card-wide .bonus-card-name{font-size:var(--font-sm);font-weight:600;color:var(--clr-text)}
+  .bonus-card-wide .bonus-card-desc{font-size:var(--font-xs);color:var(--clr-sub);margin-top:1px}
+  .sh-tiebreaker{font-size:var(--font-xs);color:var(--clr-sub);text-align:center;margin-top:var(--sp-2)}
   /* Stakes cards */
   .stakes-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
   .stake-card{
@@ -525,23 +533,36 @@
     <div class="sh-subtitle">Abr 1 – May 26, 2026 · 8 semanas · 56 días</div>
 
     <div class="sh-section">
-      <div class="sh-section-title">🏆 Puntuación</div>
-      <div class="score-row"><span class="score-row-label">20+ min de movimiento</span><span class="score-badge primary">2 pts</span></div>
-      <div class="score-row"><span class="score-row-label">1–19 min de movimiento</span><span class="score-badge light">1 pt</span></div>
-      <div class="score-row"><span class="score-row-label">Sin movimiento</span><span class="score-badge muted">0 pts</span></div>
-      <div class="score-max-pill">⚡ Máximo 4 pts/día</div>
+      <div class="sh-section-title">🏋️ Actividad base</div>
+      <div class="score-row"><span class="score-row-label">15–44 min</span><span class="score-badge light">1 pt</span></div>
+      <div class="score-row"><span class="score-row-label">45+ min</span><span class="score-badge primary">2 pts</span></div>
+      <div class="score-row"><span class="score-row-label">Sin actividad</span><span class="score-badge muted">0 pts</span></div>
     </div>
 
     <div class="sh-section">
-      <div class="sh-section-title">⚡ Bonuses (+0.5 pts cada uno)</div>
-      <div class="bonus-grid">
-        <div class="bonus-card"><span class="bonus-card-icon">📸</span><span class="bonus-card-name">Foto first</span></div>
-        <div class="bonus-card"><span class="bonus-card-icon">😴</span><span class="bonus-card-name">Sueño +7h</span></div>
-        <div class="bonus-card"><span class="bonus-card-icon">💧</span><span class="bonus-card-name">Agua</span></div>
-        <div class="bonus-card"><span class="bonus-card-icon">👟</span><span class="bonus-card-name">10,000 pasos*</span></div>
+      <div class="sh-section-title">⚡ Bonuses fijos (+1 pt c/u)</div>
+      <div class="bonus-grid-3">
+        <div class="bonus-card-wide"><span class="bonus-card-icon">💪</span><div><div class="bonus-card-name">Ejercicio estructurado</div><div class="bonus-card-desc">gym, cardio, clase, nado — no solo caminar</div></div></div>
+        <div class="bonus-card-wide"><span class="bonus-card-icon">📸</span><div><div class="bonus-card-name">Foto first</div><div class="bonus-card-desc">primer@ en mandar evidencia al grupo ese día, desde 7am</div></div></div>
+        <div class="bonus-card-wide"><span class="bonus-card-icon">🔥</span><div><div class="bonus-card-name">Racha 7 días</div><div class="bonus-card-desc">se activa automáticamente al cumplir 7 días seguidos</div></div></div>
       </div>
-      <div class="sh-footnote">*Solo cuenta si no hubo ejercicio ese día</div>
-      <div class="sh-note">Máx 2 pts de bonus por día</div>
+    </div>
+
+    <div class="sh-section">
+      <div class="sh-section-title">➕ Bonuses adicionales (máx 2 pts/día)</div>
+      <div class="bonus-grid-3">
+        <div class="bonus-card-wide"><span class="bonus-card-icon">💧</span><div><div class="bonus-card-name">Agua</div><div class="bonus-card-desc">mín 2.5–3L</div></div></div>
+        <div class="bonus-card-wide"><span class="bonus-card-icon">😴</span><div><div class="bonus-card-name">Sueño</div><div class="bonus-card-desc">mín 7 horas</div></div></div>
+        <div class="bonus-card-wide"><span class="bonus-card-icon">👟</span><div><div class="bonus-card-name">10,000 pasos</div><div class="bonus-card-desc">solo si NO hiciste ejercicio estructurado ese día</div></div></div>
+      </div>
+    </div>
+
+    <div class="sh-section">
+      <div class="sh-section-title">🏆 Máximo</div>
+      <div class="sh-callout">
+        <div class="sh-callout-big">4 pts / día</div>
+        <div class="sh-callout-note">2 pts base + hasta 2 pts de bonuses adicionales</div>
+      </div>
     </div>
 
     <div class="sh-section">
@@ -549,12 +570,12 @@
       <div style="background:var(--clr-surface-muted);border-radius:var(--r-md);padding:var(--sp-4);font-size:var(--font-sm);color:var(--clr-text);line-height:1.6">
         Días consecutivos con al menos <strong>1 punto</strong>.<br>
         Se corta si un día termina con <strong>0 pts</strong>.<br>
-        La racha la calcula Clawdio — no se auto-reporta.
+        La racha la calcula Clawdio automáticamente.
       </div>
     </div>
 
     <div class="sh-section">
-      <div class="sh-section-title">🎯 El reto</div>
+      <div class="sh-section-title">🎯 Las apuestas</div>
       <div class="stakes-grid">
         <div class="stake-card blue">
           <div class="stake-card-if">Ricky gana 🔵</div>
@@ -565,6 +586,7 @@
           <div class="stake-card-result">Ricky a México 🇲🇽</div>
         </div>
       </div>
+      <div class="sh-tiebreaker">Empate → gana quien tuvo la racha más larga</div>
     </div>
 
     <div class="sh-section">
