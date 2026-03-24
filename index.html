@@ -560,6 +560,29 @@ function buildHeatmap(rows) {
   return `<div class="heatmap-wrap"><div class="heatmap-title">Actividad · 8 semanas</div><div class="heatmap-grid">${cells}</div>${legend}</div>`;
 }
 
+// Count-up animation (easeOut, 800ms)
+const animatedTabs = {};
+function animateCountUp(container) {
+  container.querySelectorAll(".stat-num[data-count-to]").forEach(el => {
+    const raw = el.dataset.countTo;
+    const suffix = el.dataset.countSuffix || "";
+    const target = parseFloat(raw);
+    if (!target || isNaN(target)) { el.textContent = raw + suffix; return; }
+    const isFloat = raw.includes(".");
+    const duration = 800;
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const val = ease * target;
+      el.textContent = (isFloat ? val.toFixed(1) : Math.round(val)) + suffix;
+      if (t < 1) requestAnimationFrame(tick);
+    }
+    el.textContent = (isFloat ? "0.0" : "0") + suffix;
+    requestAnimationFrame(tick);
+  });
+}
+
 async function loadView(name) {
   try {
     if (name === "marcador") {
@@ -624,10 +647,10 @@ async function loadView(name) {
           </div>
         </div>
         <div class="stat-grid">
-          <div class="stat-card"><div class="stat-num">${p.puntos}</div><div class="stat-label">Puntos totales</div></div>
-          <div class="stat-card"><div class="stat-num">${p.dias}</div><div class="stat-label">Días activos</div></div>
-          <div class="stat-card"><div class="stat-num">${avg}</div><div class="stat-label">Promedio / día</div></div>
-          <div class="stat-card"><div class="stat-num">${rachaActual}🔥</div><div class="stat-label">Racha actual</div></div>
+          <div class="stat-card"><div class="stat-num" data-count-to="${p.puntos}">${p.puntos}</div><div class="stat-label">Puntos totales</div></div>
+          <div class="stat-card"><div class="stat-num" data-count-to="${p.dias}">${p.dias}</div><div class="stat-label">Días activos</div></div>
+          <div class="stat-card"><div class="stat-num" data-count-to="${avg}">${avg}</div><div class="stat-label">Promedio / día</div></div>
+          <div class="stat-card"><div class="stat-num" data-count-to="${rachaActual}" data-count-suffix="🔥">${rachaActual}🔥</div><div class="stat-label">Racha actual</div></div>
         </div>
         ${buildHeatmap(rows)}
         <div class="card-block">
@@ -636,6 +659,12 @@ async function loadView(name) {
           : `<div class="empty"><div class="empty-icon">💪</div><p>Sin registros aún.<br>¡El 1 de abril arrancamos!</p></div>`}
         </div>
         <p class="footer-note">Clawdio 🦞 · Actualizado en tiempo real</p>`;
+
+      // Count-up animation (only first load of this tab)
+      if (!animatedTabs[name]) {
+        animatedTabs[name] = true;
+        animateCountUp(document.getElementById("view-"+name));
+      }
 
       // Confetti for 7+ day streaks (once per session per person)
       if (rachaActual >= 7) {
