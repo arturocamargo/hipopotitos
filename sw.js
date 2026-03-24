@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hipopotitos-v4';
+const CACHE_NAME = 'hipopotitos-v5';
 const ASSETS = [
   '/hipopotitos/',
   '/hipopotitos/index.html',
