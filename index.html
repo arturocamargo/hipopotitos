@@ -423,7 +423,7 @@
 </a>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbz8K0Dvt8ZqjABXSjYmyuNHhlcvYO-tJNOwHGkPPy0BxsrhRvOGk26Yv4EA5Ra82ptGvg/exec";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRa9N-Jc1qsqhlj7h5MwRo9kw9NDh_PrOXAADFTuz4rixATT4lsRlZQIu9ft7vGAUUB6OkDMeOx33Z0/pub?gid=811459904&single=true&output=csv";
 const MEDALS = ["🥇","🥈","🥉","4️⃣"];
 const AVATARS = {Arturo:"👨🏽",Melissa:"👱🏼‍♀️",Majo:"👱🏻‍♀️",Ricky:"👩🏻"};
 
@@ -471,7 +471,7 @@ document.getElementById("settings-btn").addEventListener("click", () => {
 });
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
 const loaded = {};
-let allData = null;
+let processedData = null;
 
 function personaSkeleton() {
   return `<div class="skel-header"><div class="skel skel-big-avatar"></div><div class="skel-hlines"><div class="skel skel-line"></div><div class="skel skel-line"></div></div></div>
@@ -552,24 +552,101 @@ function setCache(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
 }
 
+function parseCSV(text) {
+  const rows = [];
+  let i = 0;
+  const len = text.length;
+  while (i < len) {
+    const row = [];
+    while (i < len) {
+      let field = '';
+      if (text[i] === '"') {
+        i++;
+        while (i < len) {
+          if (text[i] === '"') {
+            if (i + 1 < len && text[i + 1] === '"') { field += '"'; i += 2; }
+            else { i++; break; }
+          } else { field += text[i]; i++; }
+        }
+      } else {
+        while (i < len && text[i] !== ',' && text[i] !== '\r' && text[i] !== '\n') { field += text[i]; i++; }
+      }
+      row.push(field);
+      if (i < len && text[i] === ',') { i++; }
+      else { if (i < len && text[i] === '\r') i++; if (i < len && text[i] === '\n') i++; break; }
+    }
+    if (row.length > 0 && row.some(f => f !== '')) rows.push(row);
+  }
+  return rows;
+}
+
+function calcDailyScore(minutes, bonusStr) {
+  let base = minutes >= 20 ? 2 : minutes >= 1 ? 1 : 0;
+  let bonusPts = 0;
+  if (bonusStr) {
+    const lower = bonusStr.toLowerCase();
+    if (lower.includes('gym')) bonusPts += 0.5;
+    if (lower.includes('foto')) bonusPts += 0.5;
+    if (lower.includes('agua')) bonusPts += 0.5;
+    if (lower.includes('sueño') || lower.includes('sueno')) bonusPts += 0.5;
+    if (lower.includes('pasos')) { if (minutes === 0) bonusPts += 0.5; }
+    bonusPts = Math.min(bonusPts, 2);
+  }
+  return Math.min(base + bonusPts, 4);
+}
+
+function processCSV(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) return { scoreboard: [], personas: {} };
+  const dataRows = rows.slice(1);
+  const byPerson = {};
+  dataRows.forEach(row => {
+    const name = (row[1] || '').trim();
+    if (!PERSONAS.includes(name)) return;
+    if (!byPerson[name]) byPerson[name] = [];
+    byPerson[name].push({ fecha: (row[2] || '').trim(), minutos: parseInt(row[3]) || 0, bonusStr: (row[4] || '').trim() });
+  });
+  const personas = {};
+  const scoreboard = [];
+  PERSONAS.forEach(name => {
+    const entries = byPerson[name] || [];
+    const byDate = {};
+    entries.forEach(e => { if (e.fecha) byDate[e.fecha] = e; });
+    let totalPts = 0, activeDays = 0;
+    const personRows = [];
+    Object.keys(byDate).sort().forEach(date => {
+      const entry = byDate[date];
+      const score = calcDailyScore(entry.minutos, entry.bonusStr);
+      totalPts += score;
+      if (score > 0) activeDays++;
+      personRows.push({ fecha: date, minutos: String(entry.minutos), total: score, bonus: entry.bonusStr });
+    });
+    personas[name] = personRows;
+    scoreboard.push({ nombre: name, puntos: totalPts, dias: activeDays });
+  });
+  scoreboard.sort((a, b) => b.puntos - a.puntos);
+  return { scoreboard, personas };
+}
+
+async function fetchAllCSVData() {
+  if (processedData) return processedData;
+  const cached = getCached("csv_data_v1");
+  if (cached) { processedData = cached; return processedData; }
+  const res = await fetch(CSV_URL, { redirect: 'follow' });
+  const text = await res.text();
+  processedData = processCSV(text);
+  setCache("csv_data_v1", processedData);
+  return processedData;
+}
+
 async function fetchData() {
-  if (allData) return allData;
-  const cached = getCached("scores");
-  if (cached) { allData = cached; return allData; }
-  const res = await fetch(API);
-  allData = await res.json();
-  setCache("scores", allData);
-  return allData;
+  const all = await fetchAllCSVData();
+  return all.scoreboard;
 }
 
 async function fetchPersona(nombre) {
-  const key = "persona_" + nombre;
-  const cached = getCached(key);
-  if (cached) return cached;
-  const res = await fetch(API + "?persona=" + nombre + "&json=1");
-  const data = await res.json();
-  setCache(key, data);
-  return data;
+  const all = await fetchAllCSVData();
+  return all.personas[nombre] || [];
 }
 
 // Trend: store weekly snapshot every Sunday, compare current vs prev
@@ -820,7 +897,7 @@ async function loadView(name) {
       const html = data.map((p,i) => {
         const avg = p.dias > 0 ? (p.puntos/p.dias).toFixed(1) : "0.0";
         const pct = Math.round(p.puntos/maxPts*100);
-        const personaRows = getCached("persona_" + p.nombre);
+        const personaRows = processedData && processedData.personas[p.nombre];
         const didLogToday = personaRows && personaRows.some(r => r.fecha === todayStr);
         const dotClass = didLogToday ? "logged" : "not-logged";
         const trend = getTrend(p.nombre, p.puntos);
@@ -841,21 +918,27 @@ async function loadView(name) {
       document.getElementById("scoreboard-list").innerHTML = html;
     } else {
       const nombre = name.charAt(0).toUpperCase() + name.slice(1);
-      const data = await fetchData();
+      const all = await fetchAllCSVData();
+      const data = all.scoreboard;
       const p = data.find(x => x.nombre === nombre) || {puntos:0, dias:0};
       const avg = p.dias > 0 ? (p.puntos/p.dias).toFixed(1) : "0.0";
+      const rows = all.personas[nombre] || [];
 
-      let rows = [];
-      try { rows = await fetchPersona(nombre); } catch(e) {}
-
-      // Streak calc from rows
-      const diasActivos = [...new Set(rows.filter(r=>r.total>0).map(r=>r.fecha))].sort();
+      // Streak calc: consecutive days backwards from today (or yesterday if today not logged)
+      const retoStartDate = new Date("2026-04-01");
+      const retoEndDate = new Date("2026-05-26");
+      const todayDate = new Date(); todayDate.setHours(0,0,0,0);
       let rachaActual = 0;
-      const today = new Date().toISOString().split("T")[0];
-      for (let i = diasActivos.length-1; i >= 0; i--) {
-        const d = new Date(today); d.setDate(d.getDate()-(diasActivos.length-1-i));
-        if (diasActivos[i] === d.toISOString().split("T")[0]) rachaActual++;
-        else break;
+      if (todayDate >= retoStartDate) {
+        const activeDateSet = new Set(rows.filter(r => r.total > 0).map(r => r.fecha));
+        let checkDate = new Date(Math.min(todayDate.getTime(), retoEndDate.getTime()));
+        let ds = checkDate.toISOString().split("T")[0];
+        if (!activeDateSet.has(ds)) checkDate.setDate(checkDate.getDate() - 1);
+        while (checkDate >= retoStartDate) {
+          ds = checkDate.toISOString().split("T")[0];
+          if (activeDateSet.has(ds)) { rachaActual++; checkDate.setDate(checkDate.getDate() - 1); }
+          else break;
+        }
       }
 
       const logRows = rows.slice(-7).reverse().map((r, idx) => {
@@ -925,7 +1008,7 @@ async function loadView(name) {
 // Preload all data in parallel on page load, then render scoreboard
 async function preloadAll() {
   if (!IS_PRE_RETO) {
-    await Promise.allSettled([fetchData(), ...PERSONAS.map(n => fetchPersona(n))]);
+    await fetchAllCSVData();
   }
   loadView("marcador");
   loaded["marcador"] = true;
@@ -970,8 +1053,8 @@ preloadAll();
       refreshing = true;
       ptrEl.style.height = "52px";
       ptrEl.style.opacity = "1";
-      ["scores","persona_Arturo","persona_Melissa","persona_Majo","persona_Ricky"].forEach(k => localStorage.removeItem(k));
-      allData = null;
+      localStorage.removeItem("csv_data_v1");
+      processedData = null;
       Object.keys(loaded).forEach(k => { if(k !== "marcador") delete loaded[k]; });
       loaded["marcador"] = false;
       await preloadAll();
@@ -1039,8 +1122,8 @@ preloadAll();
   async function refreshAllData() {
     banner.querySelector(".btn-yes").textContent = "Cargando…";
     // Clear caches
-    ["scores","persona_Arturo","persona_Melissa","persona_Majo","persona_Ricky"].forEach(k => localStorage.removeItem(k));
-    allData = null;
+    localStorage.removeItem("csv_data_v1");
+    processedData = null;
     Object.keys(loaded).forEach(k => delete loaded[k]);
     animatedTabs && Object.keys(animatedTabs).forEach(k => delete animatedTabs[k]);
     await preloadAll();
