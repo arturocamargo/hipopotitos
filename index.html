@@ -211,6 +211,18 @@
   }
   .tab.active .you-badge{color:var(--p1)}
 
+  /* POINTS BADGE on tabs */
+  .tab .tab-pts{opacity:.7;font-weight:400}
+  .tab.active .tab-pts{opacity:.8}
+
+  /* RETO PROGRESS SECTION */
+  .reto-progress{background:var(--white);border-radius:20px;box-shadow:0 2px 12px rgba(0,0,0,.05);padding:18px 20px;margin-bottom:16px}
+  .reto-progress-title{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px}
+  .reto-days{font-size:22px;font-weight:800;color:var(--p1);margin-bottom:4px}
+  .reto-bar{height:6px;background:#EDE9FE;border-radius:3px;margin:10px 0;overflow:hidden}
+  .reto-bar-fill{height:100%;background:linear-gradient(90deg,var(--p2),var(--p3));border-radius:3px;transition:width .6s ease}
+  .reto-meta{font-size:13px;color:var(--sub);display:flex;justify-content:space-between}
+
   /* PULL TO REFRESH */
   .ptr-indicator{
     text-align:center;overflow:hidden;height:0;
@@ -285,10 +297,10 @@
 <div class="tabs-wrap">
   <div class="tabs">
     <button class="tab active" data-view="marcador">🏆 Marcador</button>
-    <button class="tab" data-view="arturo">Arturo</button>
-    <button class="tab" data-view="melissa">Melissa</button>
-    <button class="tab" data-view="majo">Majo</button>
-    <button class="tab" data-view="ricky">Ricky</button>
+    <button class="tab" data-view="arturo">Arturo<span class="tab-pts" id="tab-pts-arturo"></span></button>
+    <button class="tab" data-view="melissa">Melissa<span class="tab-pts" id="tab-pts-melissa"></span></button>
+    <button class="tab" data-view="majo">Majo<span class="tab-pts" id="tab-pts-majo"></span></button>
+    <button class="tab" data-view="ricky">Ricky<span class="tab-pts" id="tab-pts-ricky"></span></button>
   </div>
 </div>
 
@@ -560,6 +572,60 @@ function buildHeatmap(rows) {
   return `<div class="heatmap-wrap"><div class="heatmap-title">Actividad · 8 semanas</div><div class="heatmap-grid">${cells}</div>${legend}</div>`;
 }
 
+// Update points badges on tabs after data loads
+function updateTabPoints(data) {
+  data.forEach(p => {
+    const el = document.getElementById("tab-pts-" + p.nombre.toLowerCase());
+    if (el) el.textContent = " · " + p.puntos;
+  });
+}
+
+// Build reto progress section
+function buildRetoProgress(rows) {
+  const retoStart = new Date("2026-04-01");
+  const retoEnd = new Date("2026-05-26");
+  const totalDays = 56;
+  const now = new Date();
+  now.setHours(0,0,0,0);
+
+  let daysRemaining, elapsed;
+  if (now < retoStart) {
+    daysRemaining = totalDays;
+    elapsed = 0;
+  } else if (now > retoEnd) {
+    daysRemaining = 0;
+    elapsed = totalDays;
+  } else {
+    elapsed = Math.floor((now - retoStart) / 864e5);
+    daysRemaining = totalDays - elapsed;
+  }
+  const pct = Math.round((elapsed / totalDays) * 100);
+
+  // Best week: group rows by ISO week, sum pts, find max
+  const weekMap = {};
+  rows.forEach(r => {
+    if (!r.fecha || !r.total) return;
+    const d = new Date(r.fecha);
+    // ISO week: get Thursday of that week
+    const thu = new Date(d);
+    thu.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const yearStart = new Date(thu.getFullYear(), 0, 1);
+    const weekNum = thu.getFullYear() + "-W" + String(Math.ceil(((thu - yearStart) / 864e5 + 1) / 7)).padStart(2, "0");
+    weekMap[weekNum] = (weekMap[weekNum] || 0) + (r.total || 0);
+  });
+  const bestWeek = Object.values(weekMap).length ? Math.max(...Object.values(weekMap)) : 0;
+
+  return `<div class="reto-progress">
+    <div class="reto-progress-title">Progreso del reto</div>
+    <div class="reto-days">Quedan ${daysRemaining} día${daysRemaining !== 1 ? "s" : ""}</div>
+    <div class="reto-bar"><div class="reto-bar-fill" style="width:${pct}%"></div></div>
+    <div class="reto-meta">
+      <span>${pct}% completado</span>
+      <span>Mejor semana: ${bestWeek} pts</span>
+    </div>
+  </div>`;
+}
+
 // Count-up animation (easeOut, 800ms)
 const animatedTabs = {};
 function animateCountUp(container) {
@@ -652,6 +718,7 @@ async function loadView(name) {
           <div class="stat-card"><div class="stat-num" data-count-to="${avg}">${avg}</div><div class="stat-label">Promedio / día</div></div>
           <div class="stat-card"><div class="stat-num" data-count-to="${rachaActual}" data-count-suffix="🔥">${rachaActual}🔥</div><div class="stat-label">Racha actual</div></div>
         </div>
+        ${buildRetoProgress(rows)}
         ${buildHeatmap(rows)}
         <div class="card-block">
           <div class="block-title">Últimos registros</div>
@@ -686,6 +753,8 @@ async function preloadAll() {
   await Promise.allSettled([fetchData(), ...PERSONAS.map(n => fetchPersona(n))]);
   loadView("marcador");
   loaded["marcador"] = true;
+  // Update tab point badges
+  try { const d = await fetchData(); updateTabPoints(d); } catch(e) {}
 }
 preloadAll();
 
