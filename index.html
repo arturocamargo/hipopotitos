@@ -609,10 +609,169 @@
 </a>
 
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRa9N-Jc1qsqhlj7h5MwRo9kw9NDh_PrOXAADFTuz4rixATT4lsRlZQIu9ft7vGAUUB6OkDMeOx33Z0/pub?gid=811459904&single=true&output=csv";
-const MEDALS = ["🥇","🥈","🥉","4️⃣"];
-const AVATARS = {Arturo:"👨🏽",Melissa:"👱🏼‍♀️",Majo:"👱🏻‍♀️",Ricky:"👩🏻"};
-const PLAYER_COLORS = {Arturo:"var(--clr-arturo)",Melissa:"var(--clr-melissa)",Majo:"var(--clr-majo)",Ricky:"var(--clr-ricky)"};
+// ============================================================
+// CONFIG — Edit this block to customize your challenge
+// ============================================================
+const CONFIG = {
+  // App identity
+  appName: "Reto Hipopotitos",
+  appEmoji: "🦛",
+
+  // Challenge dates (ISO format)
+  startDate: "2026-04-01",
+  endDate: "2026-05-26",
+
+  // Players (2-6 supported)
+  players: [
+    { name: "Arturo",  emoji: "👨🏽",   color: "#7C3AED" },
+    { name: "Melissa", emoji: "👱🏼‍♀️",   color: "#DB2777" },
+    { name: "Majo",    emoji: "👱🏻‍♀️",   color: "#D97706" },
+    { name: "Ricky",   emoji: "👩🏻",   color: "#2563EB" }
+  ],
+
+  // Stakes displayed in the rules sheet
+  stakes: [
+    { condition: "Ricky gana 🔵",     result: "Todos a Boston 🇺🇸" },
+    { condition: "Cualquier otro 🟣", result: "Ricky a México 🇲🇽" }
+  ],
+
+  // Data source (Google Sheets published CSV)
+  csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRa9N-Jc1qsqhlj7h5MwRo9kw9NDh_PrOXAADFTuz4rixATT4lsRlZQIu9ft7vGAUUB6OkDMeOx33Z0/pub?gid=811459904&single=true&output=csv",
+
+  // Google Form for daily logging
+  formUrl: "https://docs.google.com/forms/d/e/1FAIpQLSdrtS6kJVcXCTSLwpZysF1rinI-y1htqxG53cIUCZ3Hpw1hjg/viewform",
+
+  // Scoring thresholds (minutes)
+  scoring: {
+    min1pt: 15,   // minutes for 1 base point
+    min2pt: 45,   // minutes for 2 base points
+    maxPerDay: 4  // total daily cap
+  },
+
+  // Theme (primary color — players have individual colors above)
+  theme: {
+    primary: "#7C3AED",
+    headerFrom: "#1A0533",
+    headerTo: "#3B0F8C",
+    bg: "#F5F3FF"
+  }
+};
+
+// --- Derived constants from CONFIG ---
+const CSV_URL = CONFIG.csvUrl;
+const MEDALS = ["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣"];
+const AVATARS = Object.fromEntries(CONFIG.players.map(p => [p.name, p.emoji]));
+const PLAYER_COLORS = Object.fromEntries(CONFIG.players.map(p => [p.name, p.color]));
+const RETO_END = new Date(CONFIG.endDate);
+const TOTAL_DAYS = Math.round((RETO_END - new Date(CONFIG.startDate)) / 864e5);
+
+// --- Apply theme & player colors as CSS custom properties ---
+(function applyTheme() {
+  const s = document.documentElement.style;
+  s.setProperty('--clr-primary', CONFIG.theme.primary);
+  s.setProperty('--clr-header-from', CONFIG.theme.headerFrom);
+  s.setProperty('--clr-header-to', CONFIG.theme.headerTo);
+  s.setProperty('--clr-bg', CONFIG.theme.bg);
+  CONFIG.players.forEach(p => s.setProperty('--clr-' + p.name.toLowerCase(), p.color));
+})();
+
+// --- Generate dynamic HTML from CONFIG ---
+(function initFromConfig() {
+  document.title = CONFIG.appName + ' ' + CONFIG.appEmoji;
+
+  // Header
+  const h1 = document.querySelector('.header-left h1');
+  if (h1) h1.textContent = CONFIG.appName.split(' ').slice(0, 1).join(' ') + ' ' + CONFIG.appEmoji;
+  const sub = document.querySelector('.header .subtitle');
+  if (sub) {
+    const sd = new Date(CONFIG.startDate);
+    const weeks = Math.round(TOTAL_DAYS / 7);
+    sub.textContent = weeks + ' semanas · Arranca el ' + sd.getDate() + ' de ' + sd.toLocaleDateString('es', {month:'long'});
+  }
+
+  // Onboarding
+  const obEmoji = document.querySelector('.onboarding-title');
+  if (obEmoji) obEmoji.textContent = CONFIG.appEmoji;
+  const obCards = document.querySelector('.onboarding-cards');
+  if (obCards) obCards.innerHTML = CONFIG.players.map(p =>
+    '<div class="onboarding-card" data-name="' + p.name + '"><div class="ob-emoji">' + p.emoji + '</div><div class="ob-name">' + p.name + '</div></div>'
+  ).join('');
+
+  // Tabs
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.innerHTML =
+    '<button class="tab active" data-view="marcador">🏆 Marcador</button>' +
+    CONFIG.players.map(p =>
+      '<button class="tab" data-view="' + p.name.toLowerCase() + '">' + p.name +
+      '<span class="tab-pts" id="tab-pts-' + p.name.toLowerCase() + '"></span></button>'
+    ).join('');
+
+  // Player view containers
+  const content = document.querySelector('.content');
+  document.querySelectorAll('.view:not(#view-marcador)').forEach(v => v.remove());
+  CONFIG.players.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'view';
+    div.id = 'view-' + p.name.toLowerCase();
+    content.appendChild(div);
+  });
+
+  // Info sheet body
+  const sheetBody = document.querySelector('.info-sheet-body');
+  if (sheetBody) {
+    const sd = new Date(CONFIG.startDate), ed = new Date(CONFIG.endDate);
+    const weeks = Math.round(TOTAL_DAYS / 7);
+    const sl = sd.toLocaleDateString('es', {month:'short', day:'numeric'});
+    const el = ed.toLocaleDateString('es', {month:'short', day:'numeric', year:'numeric'});
+    const pills = CONFIG.players.map(p =>
+      '<span class="player-pill" style="border-color:' + p.color + '">' + p.emoji + ' ' + p.name + '</span>'
+    ).join('');
+    const stakes = CONFIG.stakes.map((s, i) =>
+      '<div class="stake-card ' + (i === 0 ? 'blue' : 'violet') + '">' +
+      '<div class="stake-card-if">' + s.condition + '</div>' +
+      '<div class="stake-card-result">' + s.result + '</div></div>'
+    ).join('');
+    sheetBody.innerHTML =
+      '<div class="sh-title">' + CONFIG.appEmoji + ' ' + CONFIG.appName + '</div>' +
+      '<div class="sh-subtitle">' + sl + ' – ' + el + ' · ' + weeks + ' semanas · ' + TOTAL_DAYS + ' días</div>' +
+      '<div class="sh-section"><div class="sh-section-title">🏋️ Actividad base</div>' +
+      '<div class="score-row"><span class="score-row-label">' + CONFIG.scoring.min1pt + '–' + (CONFIG.scoring.min2pt - 1) + ' min</span><span class="score-badge light">1 pt</span></div>' +
+      '<div class="score-row"><span class="score-row-label">' + CONFIG.scoring.min2pt + '+ min</span><span class="score-badge primary">2 pts</span></div>' +
+      '<div class="score-row"><span class="score-row-label">Sin actividad</span><span class="score-badge muted">0 pts</span></div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">⚡ Bonuses fijos (+1 pt c/u)</div>' +
+      '<div class="bonus-grid-3">' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">💪</span><div><div class="bonus-card-name">Ejercicio estructurado</div><div class="bonus-card-desc">gym, cardio, clase, nado — no solo caminar</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">📸</span><div><div class="bonus-card-name">Foto first</div><div class="bonus-card-desc">primer@ en mandar evidencia al grupo ese día, desde 7am</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">🔥</span><div><div class="bonus-card-name">Racha 7 días</div><div class="bonus-card-desc">se activa automáticamente al cumplir 7 días seguidos</div></div></div>' +
+      '</div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">➕ Bonuses adicionales (máx 2 pts/día)</div>' +
+      '<div class="bonus-grid-3">' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">💧</span><div><div class="bonus-card-name">Agua</div><div class="bonus-card-desc">mín 2.5–3L</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">😴</span><div><div class="bonus-card-name">Sueño</div><div class="bonus-card-desc">mín 7 horas</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">👟</span><div><div class="bonus-card-name">10,000 pasos</div><div class="bonus-card-desc">solo si NO hiciste ejercicio estructurado ese día</div></div></div>' +
+      '</div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">🏆 Máximo</div>' +
+      '<div class="sh-callout"><div class="sh-callout-big">' + CONFIG.scoring.maxPerDay + ' pts / día</div>' +
+      '<div class="sh-callout-note">2 pts base + hasta 2 pts de bonuses adicionales</div></div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">🔥 Racha</div>' +
+      '<div style="background:var(--clr-surface-muted);border-radius:var(--r-md);padding:var(--sp-4);font-size:var(--font-sm);color:var(--clr-text);line-height:1.6">' +
+      'Días consecutivos con al menos <strong>1 punto</strong>.<br>Se corta si un día termina con <strong>0 pts</strong>.<br>La racha la calcula Clawdio automáticamente.</div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">🎯 Las apuestas</div>' +
+      '<div class="stakes-grid">' + stakes + '</div>' +
+      '<div class="sh-tiebreaker">Empate → gana quien tuvo la racha más larga</div></div>' +
+      '<div class="sh-section"><div class="sh-section-title">👥 Los jugadores</div>' +
+      '<div class="player-pills">' + pills + '</div></div>' +
+      '<a class="sheet-cta" href="' + CONFIG.formUrl + '" target="_blank">📝 Llenar log diario →</a>';
+  }
+
+  // FAB link
+  const fab = document.getElementById('fab');
+  if (fab) fab.href = CONFIG.formUrl;
+
+  // PTR spinner
+  const ptr = document.querySelector('.ptr-spinner');
+  if (ptr) ptr.textContent = CONFIG.appEmoji;
+})();
 
 // --- ONBOARDING ---
 let myName = localStorage.getItem("myName");
@@ -677,8 +836,8 @@ function personaSkeleton() {
 
 // Countdown
 function updateCountdown() {
-  const start = new Date("2026-04-01");
-  const end = new Date("2026-05-26");
+  const start = new Date(CONFIG.startDate);
+  const end = new Date(CONFIG.endDate);
   const now = new Date();
   if (now < start) {
     const d = Math.ceil((start - now) / 864e5);
@@ -708,7 +867,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 });
 
 // Swipe navigation
-const TAB_ORDER = ["marcador","arturo","melissa","majo","ricky"];
+const TAB_ORDER = ["marcador", ...CONFIG.players.map(p => p.name.toLowerCase())];
 const contentEl = document.querySelector(".content");
 let swipeStartX = 0, swipeStartY = 0;
 contentEl.addEventListener("touchstart", e => {
@@ -773,7 +932,7 @@ function calcDailyScore(minutes, bonusStr) {
   const hasPasos = (lower.includes('10k') || lower.includes('10,000') || lower.includes('10000') || lower.includes('pasos')) && !hasEjercicio;
 
   // Base: activity minutes OR 10K pasos (as movement substitute, no gym)
-  let base = minutes >= 45 ? 2 : minutes >= 15 ? 1 : 0;
+  let base = minutes >= CONFIG.scoring.min2pt ? 2 : minutes >= CONFIG.scoring.min1pt ? 1 : 0;
   if (base === 0 && hasPasos) base = 1; // 10K pasos counts as 1pt base if no other activity
 
   // No movement at all = 0 pts, bonuses don't apply
@@ -792,7 +951,7 @@ function calcDailyScore(minutes, bonusStr) {
   if (hasPasos && minutes > 0) adicionales += 1;
   adicionales = Math.min(adicionales, 2);
 
-  return Math.min(base + fixed + adicionales, 4);
+  return Math.min(base + fixed + adicionales, CONFIG.scoring.maxPerDay);
 }
 
 function processCSV(text) {
@@ -830,7 +989,7 @@ function processCSV(text) {
       } else {
         streak = 0;
       }
-      score = Math.min(score + streakBonus, 4);
+      score = Math.min(score + streakBonus, CONFIG.scoring.maxPerDay);
       totalPts += score;
       if (score > 0) activeDays++;
       personRows.push({ fecha: date, minutos: String(entry.minutos), total: score, bonus: entry.bonusStr });
@@ -940,7 +1099,7 @@ function buildHeatmap(rows) {
       d.setDate(startMonday.getDate() + col * 7 + row);
       const dateStr = d.toISOString().split("T")[0];
       const pts = dateMap[dateStr] || 0;
-      const level = d > today ? 0 : Math.min(pts, 4);
+      const level = d > today ? 0 : Math.min(pts, CONFIG.scoring.maxPerDay);
       const title = `${dateStr}: ${pts} pts`;
       cells += `<div class="heatmap-cell hm-${level}" title="${title}"></div>`;
     }
@@ -959,9 +1118,9 @@ function updateTabPoints(data) {
 
 // Build reto progress section
 function buildRetoProgress(rows) {
-  const retoStart = new Date("2026-04-01");
-  const retoEnd = new Date("2026-05-26");
-  const totalDays = 56;
+  const retoStart = RETO_START;
+  const retoEnd = RETO_END;
+  const totalDays = TOTAL_DAYS;
   const now = new Date();
   now.setHours(0,0,0,0);
 
@@ -1049,16 +1208,13 @@ function parseBonusPills(bonusStr) {
   }).join("");
 }
 
-const PERSONAS = ["Arturo","Melissa","Majo","Ricky"];
-const RETO_START = new Date("2026-04-01");
+const PERSONAS = CONFIG.players.map(p => p.name);
+const RETO_START = new Date(CONFIG.startDate);
 const IS_PRE_RETO = new Date() < RETO_START;
 
-const GREETINGS = {
-  Arturo: "¿Listo para el reto, Arturo? 👨🏽",
-  Melissa: "¿Lista para el reto, Melissa? 👱🏼‍♀️",
-  Majo: "¿Lista para el reto, Majo? 👱🏻‍♀️",
-  Ricky: "¿Lista para el reto, Ricky? 👩🏻",
-};
+const GREETINGS = Object.fromEntries(CONFIG.players.map(p =>
+  [p.name, p.emoji + ' ¡Prepárate, ' + p.name + '!']
+));
 
 function buildPreRetoMarcador() {
   const daysLeft = Math.ceil((RETO_START - new Date()) / 864e5);
@@ -1072,7 +1228,7 @@ function buildPreRetoMarcador() {
           <circle class="ring-progress" cx="48" cy="48" r="${R}" stroke="${color}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>
         </svg>
         <div class="ring-inner">
-          <span class="ring-emoji">${AVATARS[n]||"🦛"}</span>
+          <span class="ring-emoji">${AVATARS[n]||CONFIG.appEmoji}</span>
         </div>
       </div>
       <div class="ring-name">${n}</div>
@@ -1081,20 +1237,20 @@ function buildPreRetoMarcador() {
   return `<div class="prereto-card">
     <div class="prereto-countdown">${daysLeft}</div>
     <div class="prereto-countdown-label">día${daysLeft!==1?"s":""} para el reto</div>
-    <div class="prereto-hippo">🦛</div>
+    <div class="prereto-hippo">${CONFIG.appEmoji}</div>
     <div class="prereto-msg">El reto arranca pronto</div>
-    <div class="prereto-date">1 de abril – 26 de mayo 2026</div>
+    <div class="prereto-date">${RETO_START.getDate()} de ${RETO_START.toLocaleDateString('es',{month:'long'})} – ${RETO_END.getDate()} de ${RETO_END.toLocaleDateString('es',{month:'long',year:'numeric'})}</div>
   </div>
   <div class="ring-grid">${playerCards}</div>
   <button class="reglas-btn" onclick="openInfoSheet()">ℹ️ Reglas</button>
-  <p class="footer-note">Clawdio 🦞 · Prepárense hipopotitos</p>`;
+  <p class="footer-note">Clawdio 🦞 · ${CONFIG.appName}</p>`;
 }
 
 function buildPreRetoPersonal(nombre) {
   return `<div class="prereto-personal">
-    <div class="prereto-personal-avatar">${AVATARS[nombre]||"🦛"}</div>
+    <div class="prereto-personal-avatar">${AVATARS[nombre]||CONFIG.appEmoji}</div>
     <div class="prereto-personal-msg">${GREETINGS[nombre] || "¿Listo para el reto?"}</div>
-    <div class="prereto-personal-date">El reto inicia el 1 de abril de 2026</div>
+    <div class="prereto-personal-date">El reto inicia el ${RETO_START.getDate()} de ${RETO_START.toLocaleDateString('es',{month:'long',year:'numeric'})}</div>
     <div class="prereto-tips">
       <div class="prereto-tips-title">Prepárate</div>
       <div class="prereto-tip"><span class="prereto-tip-icon">💧</span> Toma al menos 2L de agua al día</div>
@@ -1102,7 +1258,7 @@ function buildPreRetoPersonal(nombre) {
       <div class="prereto-tip"><span class="prereto-tip-icon">🏃</span> Muévete al menos 20 min al día</div>
     </div>
   </div>
-  <p class="footer-note">Clawdio 🦞 · ¡Nos vemos el 1 de abril!</p>`;
+  <p class="footer-note">Clawdio 🦞 · ¡Nos vemos el ${RETO_START.getDate()} de ${RETO_START.toLocaleDateString('es',{month:'long'})}!</p>`;
 }
 
 async function loadView(name) {
@@ -1122,11 +1278,11 @@ async function loadView(name) {
       const data = await fetchData();
       updateWeeklySnapshot(data);
       const todayStr = new Date().toISOString().split("T")[0];
-      const retoStart = new Date("2026-04-01");
+      const retoStart = RETO_START;
       const now = new Date(); now.setHours(0,0,0,0);
       const elapsed = now >= retoStart ? Math.max(Math.floor((now - retoStart) / 864e5), 1) : 1;
-      const maxPossible = elapsed * 4;
-      const totalDays = 56;
+      const maxPossible = elapsed * CONFIG.scoring.maxPerDay;
+      const totalDays = TOTAL_DAYS;
       const retoPct = now >= retoStart ? Math.round(Math.min(elapsed / totalDays, 1) * 100) : 0;
 
       const rings = data.map((p,i) => {
@@ -1149,7 +1305,7 @@ async function loadView(name) {
               <circle class="ring-progress" cx="48" cy="48" r="${R}" stroke="${color}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-target="${dashOffset}"/>
             </svg>
             <div class="ring-inner">
-              <span class="ring-emoji">${AVATARS[p.nombre]||"🦛"}</span>
+              <span class="ring-emoji">${AVATARS[p.nombre]||CONFIG.appEmoji}</span>
               <span class="ring-pts" style="color:${color}">${p.puntos}</span>
             </div>
           </div>
@@ -1159,7 +1315,7 @@ async function loadView(name) {
       }).join("");
 
       document.getElementById("view-marcador").innerHTML = `
-        <a class="log-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdrtS6kJVcXCTSLwpZysF1rinI-y1htqxG53cIUCZ3Hpw1hjg/viewform" target="_blank">
+        <a class="log-btn" href="${CONFIG.formUrl}" target="_blank">
           <span class="log-icon">✏️</span> Loggear hoy →
         </a>
         <div class="ring-grid">${rings}</div>
@@ -1193,8 +1349,8 @@ async function loadView(name) {
       const rows = all.personas[nombre] || [];
 
       // Streak calc: consecutive days backwards from today (or yesterday if today not logged)
-      const retoStartDate = new Date("2026-04-01");
-      const retoEndDate = new Date("2026-05-26");
+      const retoStartDate = RETO_START;
+      const retoEndDate = RETO_END;
       const todayDate = new Date(); todayDate.setHours(0,0,0,0);
       let rachaActual = 0;
       if (todayDate >= retoStartDate) {
@@ -1224,7 +1380,7 @@ async function loadView(name) {
         <div class="hero-dark">
           <div class="hero-glass">
             <div class="hero-top">
-              <span class="hero-avatar">${AVATARS[nombre]||"🦛"}</span>
+              <span class="hero-avatar">${AVATARS[nombre]||CONFIG.appEmoji}</span>
               <span class="hero-name">${nombre}</span>
             </div>
             <div class="hero-number" data-count-to="${p.puntos}">${p.puntos}</div>
@@ -1246,7 +1402,7 @@ async function loadView(name) {
         <div class="card-block">
           <div class="block-title">Últimos registros</div>
           ${logRows ? `<table class="log-table"><thead><tr><th>Fecha</th><th>Actividad</th><th>Pts</th></tr></thead><tbody>${logRows}</tbody></table>`
-          : `<div class="empty"><div class="empty-icon">💪</div><p>Sin registros aún.<br>¡El 1 de abril arrancamos!</p></div>`}
+          : `<div class="empty"><div class="empty-icon">💪</div><p>Sin registros aún.<br>¡El ${RETO_START.getDate()} de ${RETO_START.toLocaleDateString('es',{month:'long'})} arrancamos!</p></div>`}
         </div>
         <p class="footer-note">Clawdio 🦞 · Actualizado en tiempo real</p>`;
 
