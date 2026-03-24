@@ -746,18 +746,19 @@ function parseCSV(text) {
 }
 
 function calcDailyScore(minutes, bonusStr) {
-  let base = minutes >= 20 ? 2 : minutes >= 1 ? 1 : 0;
-  let bonusPts = 0;
+  let base = minutes >= 45 ? 2 : minutes >= 15 ? 1 : 0;
+  let fixed = 0;
+  let adicionales = 0;
   if (bonusStr) {
     const lower = bonusStr.toLowerCase();
-    if (lower.includes('gym')) bonusPts += 0.5;
-    if (lower.includes('foto')) bonusPts += 0.5;
-    if (lower.includes('agua')) bonusPts += 0.5;
-    if (lower.includes('sueño') || lower.includes('sueno')) bonusPts += 0.5;
-    if (lower.includes('pasos')) { if (minutes === 0) bonusPts += 0.5; }
-    bonusPts = Math.min(bonusPts, 2);
+    if (lower.includes('ejercicio estructurado')) fixed += 1;
+    if (lower.includes('foto first')) fixed += 1;
+    if (lower.includes('agua')) adicionales += 1;
+    if (lower.includes('sueño') || lower.includes('sueno')) adicionales += 1;
+    if ((lower.includes('10k pasos') || lower.includes('10,000 pasos') || lower.includes('10000 pasos')) && !lower.includes('ejercicio estructurado') && minutes === 0) adicionales += 1;
+    adicionales = Math.min(adicionales, 2);
   }
-  return Math.min(base + bonusPts, 4);
+  return Math.min(base + fixed + adicionales, 4);
 }
 
 function processCSV(text) {
@@ -778,13 +779,28 @@ function processCSV(text) {
     const byDate = {};
     entries.forEach(e => { if (e.fecha) byDate[e.fecha] = e; });
     let totalPts = 0, activeDays = 0;
+    let streak = 0, lastDate = null;
     const personRows = [];
     Object.keys(byDate).sort().forEach(date => {
       const entry = byDate[date];
-      const score = calcDailyScore(entry.minutos, entry.bonusStr);
+      // Check for gap in calendar days — breaks streak
+      if (lastDate) {
+        const diffDays = Math.round((new Date(date) - new Date(lastDate)) / 86400000);
+        if (diffDays > 1) streak = 0;
+      }
+      let score = calcDailyScore(entry.minutos, entry.bonusStr);
+      let streakBonus = 0;
+      if (score > 0) {
+        streak++;
+        if (streak === 7) streakBonus = 1;
+      } else {
+        streak = 0;
+      }
+      score = Math.min(score + streakBonus, 4);
       totalPts += score;
       if (score > 0) activeDays++;
       personRows.push({ fecha: date, minutos: String(entry.minutos), total: score, bonus: entry.bonusStr });
+      lastDate = date;
     });
     personas[name] = personRows;
     scoreboard.push({ nombre: name, puntos: totalPts, dias: activeDays });
@@ -795,12 +811,12 @@ function processCSV(text) {
 
 async function fetchAllCSVData() {
   if (processedData) return processedData;
-  const cached = getCached("csv_data_v1");
+  const cached = getCached("csv_data_v2");
   if (cached) { processedData = cached; return processedData; }
   const res = await fetch(CSV_URL, { redirect: 'follow' });
   const text = await res.text();
   processedData = processCSV(text);
-  setCache("csv_data_v1", processedData);
+  setCache("csv_data_v2", processedData);
   return processedData;
 }
 
@@ -1296,7 +1312,7 @@ preloadAll();
       refreshing = true;
       ptrEl.style.height = "52px";
       ptrEl.style.opacity = "1";
-      localStorage.removeItem("csv_data_v1");
+      localStorage.removeItem("csv_data_v2");
       processedData = null;
       Object.keys(loaded).forEach(k => { if(k !== "marcador") delete loaded[k]; });
       loaded["marcador"] = false;
@@ -1365,7 +1381,7 @@ preloadAll();
   async function refreshAllData() {
     banner.querySelector(".btn-yes").textContent = "Cargando…";
     // Clear caches
-    localStorage.removeItem("csv_data_v1");
+    localStorage.removeItem("csv_data_v2");
     processedData = null;
     Object.keys(loaded).forEach(k => delete loaded[k]);
     animatedTabs && Object.keys(animatedTabs).forEach(k => delete animatedTabs[k]);
