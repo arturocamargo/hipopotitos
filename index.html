@@ -768,19 +768,30 @@ function parseCSV(text) {
 }
 
 function calcDailyScore(minutes, bonusStr) {
+  const lower = (bonusStr || '').toLowerCase();
+  const hasEjercicio = lower.includes('ejercicio estructurado');
+  const hasPasos = (lower.includes('10k') || lower.includes('10,000') || lower.includes('10000') || lower.includes('pasos')) && !hasEjercicio;
+
+  // Base: activity minutes OR 10K pasos (as movement substitute, no gym)
   let base = minutes >= 45 ? 2 : minutes >= 15 ? 1 : 0;
+  if (base === 0 && hasPasos) base = 1; // 10K pasos counts as 1pt base if no other activity
+
+  // No movement at all = 0 pts, bonuses don't apply
+  if (base === 0) return 0;
+
+  // Fixed bonuses (only if there's activity)
   let fixed = 0;
+  if (hasEjercicio) fixed += 1;
+  if (lower.includes('foto first') || lower.includes('foto post') || lower.includes('primero al grupo')) fixed += 1;
+
+  // Adicionales (max 2, only if there's activity)
   let adicionales = 0;
-  if (bonusStr) {
-    const lower = bonusStr.toLowerCase();
-    const hasEjercicio = lower.includes('ejercicio estructurado');
-    if (hasEjercicio) fixed += 1;
-    if (lower.includes('foto first') || lower.includes('foto post') || lower.includes('primero al grupo')) fixed += 1;
-    if (lower.includes('agua')) adicionales += 1;
-    if (lower.includes('sueño') || lower.includes('sueno') || lower.includes('dorm')) adicionales += 1;
-    if ((lower.includes('10k') || lower.includes('10,000') || lower.includes('10000') || lower.includes('pasos')) && !hasEjercicio) adicionales += 1;
-    adicionales = Math.min(adicionales, 2);
-  }
+  if (lower.includes('agua')) adicionales += 1;
+  if (lower.includes('sueño') || lower.includes('sueno') || lower.includes('dorm')) adicionales += 1;
+  // Pasos as adicional: only if base came from minutes (not from pasos itself)
+  if (hasPasos && minutes > 0) adicionales += 1;
+  adicionales = Math.min(adicionales, 2);
+
   return Math.min(base + fixed + adicionales, 4);
 }
 
