@@ -245,6 +245,71 @@
 
   .footer-note{text-align:center;color:var(--clr-sub);font-size:var(--font-xs);padding-top:var(--sp-2)}
 
+  /* HYPE BANNER (pre-challenge countdown) */
+  .hype-banner{
+    background:linear-gradient(160deg,#1A0533 0%,#3B0F8C 50%,#7C3AED 100%);
+    position:relative;overflow:hidden;padding:28px 20px 24px;
+    border-bottom:2px solid rgba(124,58,237,.4);
+  }
+  .hype-banner::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,.25),transparent 70%);
+    pointer-events:none;
+  }
+  .hype-banner::after{
+    content:'';position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.02) 0px,rgba(255,255,255,.02) 1px,transparent 1px,transparent 40px);
+    pointer-events:none;
+  }
+  .hype-inner{position:relative;max-width:480px;margin:0 auto;text-align:center}
+  .hype-glow{
+    position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+    width:200px;height:200px;border-radius:50%;
+    background:radial-gradient(circle,rgba(124,58,237,.35),transparent 70%);
+    filter:blur(40px);pointer-events:none;animation:hypeGlow 3s ease-in-out infinite;
+  }
+  @keyframes hypeGlow{0%,100%{opacity:.6;transform:translateX(-50%) scale(1)}50%{opacity:1;transform:translateX(-50%) scale(1.2)}}
+
+  .hype-countdown{position:relative;margin-bottom:8px}
+  .hype-days{font-size:64px;font-weight:900;color:#fff;line-height:1;letter-spacing:-2px;
+    text-shadow:0 0 30px rgba(124,58,237,.6),0 0 60px rgba(124,58,237,.3);
+    animation:hypePulse 2s ease-in-out infinite;
+  }
+  @keyframes hypePulse{0%,100%{transform:scale(1);text-shadow:0 0 30px rgba(124,58,237,.6),0 0 60px rgba(124,58,237,.3)}50%{transform:scale(1.04);text-shadow:0 0 40px rgba(124,58,237,.8),0 0 80px rgba(124,58,237,.5)}}
+  .hype-hms{font-size:var(--font-sm);color:rgba(255,255,255,.55);font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+  .hype-tagline{font-size:var(--font-base);color:rgba(255,255,255,.8);font-weight:600;margin:12px 0 20px;line-height:1.4}
+
+  .hype-players{display:flex;justify-content:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .hype-player{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.12);border-radius:var(--r-md);
+    padding:10px 14px;min-width:72px;
+    transition:transform .2s,border-color .3s;
+  }
+  .hype-player:hover{transform:translateY(-2px)}
+  .hype-ring{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid currentColor;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800;color:#fff;
+    box-shadow:0 0 12px currentColor;
+    animation:ringGlow 2.5s ease-in-out infinite;
+  }
+  @keyframes ringGlow{0%,100%{box-shadow:0 0 8px currentColor}50%{box-shadow:0 0 18px currentColor,0 0 30px currentColor}}
+  .hype-pname{font-size:var(--font-xs);font-weight:700;color:#fff}
+  .hype-ppts{font-size:10px;color:rgba(255,255,255,.45);font-weight:600}
+
+  .hype-hippo{font-size:40px;line-height:1;display:inline-block;animation:hippoBounce 2s ease-in-out infinite}
+  @keyframes hippoBounce{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(-12px) scale(1.1)}60%{transform:translateY(2px) scale(.97)}}
+
+  .hype-border-anim{
+    position:absolute;bottom:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,#7C3AED,#DB2777,#D97706,#2563EB,#7C3AED);
+    background-size:300% 100%;animation:borderSlide 4s linear infinite;
+  }
+  @keyframes borderSlide{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+
   /* ONBOARDING OVERLAY */
   .onboarding-overlay{
     position:fixed;inset:0;z-index:10000;
@@ -493,6 +558,42 @@
   </div>
 </div>
 
+<!-- HYPE BANNER (pre-challenge countdown, March 29-31 only) -->
+<div class="hype-banner" id="hype-banner" style="display:none">
+  <div class="hype-glow"></div>
+  <div class="hype-inner">
+    <div class="hype-countdown">
+      <div class="hype-days" id="hype-days"></div>
+      <div class="hype-hms" id="hype-hms"></div>
+    </div>
+    <div class="hype-tagline" id="hype-tagline"></div>
+    <div class="hype-players">
+      <div class="hype-player">
+        <div class="hype-ring" style="color:#7C3AED">A</div>
+        <span class="hype-pname">Arturo</span>
+        <span class="hype-ppts">0 pts</span>
+      </div>
+      <div class="hype-player">
+        <div class="hype-ring" style="color:#DB2777">M</div>
+        <span class="hype-pname">Melissa</span>
+        <span class="hype-ppts">0 pts</span>
+      </div>
+      <div class="hype-player">
+        <div class="hype-ring" style="color:#D97706">M</div>
+        <span class="hype-pname">Majo</span>
+        <span class="hype-ppts">0 pts</span>
+      </div>
+      <div class="hype-player">
+        <div class="hype-ring" style="color:#2563EB">R</div>
+        <span class="hype-pname">Ricky</span>
+        <span class="hype-ppts">0 pts</span>
+      </div>
+    </div>
+    <div class="hype-hippo">🦛</div>
+  </div>
+  <div class="hype-border-anim"></div>
+</div>
+
 <div class="ptr-indicator" id="ptr-indicator"><span class="ptr-spinner">🦛</span></div>
 <div class="content">
 
@@ -609,6 +710,47 @@
 </a>
 
 <script>
+// ============================================================
+// HYPE BANNER — Pre-challenge countdown (March 29-31 only)
+// ============================================================
+(function initHypeBanner() {
+  const banner = document.getElementById("hype-banner");
+  if (!banner) return;
+
+  const taglines = {
+    29: "El reto empieza en 3 días. ¿Estás listo, hipopótamo?",
+    30: "Mañana pasado arrancan los hipopótamos. No hay vuelta atrás.",
+    31: "Mañana es el día. Última noche libre."
+  };
+
+  function update() {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    // Show only March 29, 30, 31
+    if (m !== 2 || d < 29 || d > 31) { banner.style.display = "none"; return; }
+
+    banner.style.display = "";
+    // April 1 midnight
+    const april1 = new Date(y, 3, 1, 0, 0, 0);
+    const diff = april1 - now;
+    if (diff <= 0) { banner.style.display = "none"; return; }
+
+    const totalH = Math.floor(diff / 3600000);
+    const days = Math.floor(totalH / 24);
+    const hrs = totalH % 24;
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+
+    document.getElementById("hype-days").textContent = days >= 2 ? days + " DÍAS" : days === 1 ? "1 DÍA" : hrs + " HORAS";
+    document.getElementById("hype-hms").textContent =
+      String(hrs).padStart(2,"0") + "h " + String(mins).padStart(2,"0") + "m " + String(secs).padStart(2,"0") + "s";
+    document.getElementById("hype-tagline").textContent = taglines[d] || "";
+  }
+
+  update();
+  setInterval(update, 1000);
+})();
+
 // ============================================================
 // CONFIG — Edit this block to customize your challenge
 // ============================================================
