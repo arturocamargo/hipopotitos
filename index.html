@@ -112,6 +112,7 @@
   .ring-name{font-size:var(--font-sm);font-weight:600;color:var(--clr-text);margin-top:var(--sp-2);text-align:center}
   .ring-trend{font-size:var(--font-xs);font-weight:700;margin-top:1px;text-align:center}
   .ring-trend.up{color:var(--clr-success)}.ring-trend.down{color:var(--clr-danger)}.ring-trend.flat{color:var(--clr-muted)}
+  .ring-streak{font-size:var(--font-xs);font-weight:700;color:var(--clr-warning);margin-top:2px;text-align:center}
 
   /* RETO PROGRESS BAR (below rings) */
   .reto-mini{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-5)}
@@ -242,6 +243,17 @@
   .heatmap-cell:hover{transform:scale(1.3)}
   .heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;justify-content:flex-end;font-size:9px;color:var(--clr-sub)}
   .heatmap-legend .heatmap-cell{width:12px;height:12px;flex-shrink:0}
+
+  /* HEATMAP CELL COLORS */
+  .hm-0{background:#F3F4F6}.hm-1{background:#EDE9FE}.hm-2{background:#C4B5FD}.hm-3{background:#8B5CF6}.hm-4{background:#6D28D9}
+
+  /* STATS TABLE (marcador) */
+  .stats-table{width:100%;border-collapse:collapse}
+  .stats-table th{font-size:var(--font-xs);font-weight:700;color:var(--clr-sub);text-transform:uppercase;letter-spacing:.5px;padding:var(--sp-2) var(--sp-3);text-align:center;border-bottom:1px solid var(--clr-border)}
+  .stats-table th:first-child{text-align:left}
+  .stats-table td{padding:var(--sp-3) var(--sp-3);font-size:var(--font-sm);text-align:center;border-bottom:1px solid rgba(0,0,0,.04)}
+  .stats-table td:first-child{text-align:left;font-weight:600}
+  .stats-table tr:last-child td{border-bottom:none}
 
   .footer-note{text-align:center;color:var(--clr-sub);font-size:var(--font-xs);padding-top:var(--sp-2)}
 
@@ -1109,12 +1121,16 @@ function processCSV(text) {
   });
   const personas = {};
   const scoreboard = [];
+  const retoStartDate = new Date(CONFIG.startDate);
+  const retoEndDate = new Date(CONFIG.endDate);
+  const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+
   PERSONAS.forEach(name => {
     const entries = byPerson[name] || [];
     const byDate = {};
     entries.forEach(e => { if (e.fecha) byDate[e.fecha] = e; });
     let totalPts = 0, activeDays = 0;
-    let streak = 0, lastDate = null;
+    let streak = 0, bestStreak = 0, lastDate = null;
     const personRows = [];
     Object.keys(byDate).sort().forEach(date => {
       const entry = byDate[date];
@@ -1128,6 +1144,7 @@ function processCSV(text) {
       if (score > 0) {
         streak++;
         if (streak === 7) streakBonus = 1;
+        if (streak > bestStreak) bestStreak = streak;
       } else {
         streak = 0;
       }
@@ -1137,8 +1154,23 @@ function processCSV(text) {
       personRows.push({ fecha: date, minutos: String(entry.minutos), total: score, bonus: entry.bonusStr });
       lastDate = date;
     });
+
+    // Current streak: count backwards from today (or yesterday if today not logged yet)
+    let currentStreak = 0;
+    if (todayDate >= retoStartDate) {
+      const activeDateSet = new Set(personRows.filter(r => r.total > 0).map(r => r.fecha));
+      let checkDate = new Date(Math.min(todayDate.getTime(), retoEndDate.getTime()));
+      let ds = checkDate.toISOString().split("T")[0];
+      if (!activeDateSet.has(ds)) checkDate.setDate(checkDate.getDate() - 1);
+      while (checkDate >= retoStartDate) {
+        ds = checkDate.toISOString().split("T")[0];
+        if (activeDateSet.has(ds)) { currentStreak++; checkDate.setDate(checkDate.getDate() - 1); }
+        else break;
+      }
+    }
+
     personas[name] = personRows;
-    scoreboard.push({ nombre: name, puntos: totalPts, dias: activeDays });
+    scoreboard.push({ nombre: name, puntos: totalPts, dias: activeDays, racha: currentStreak, mejorRacha: bestStreak });
   });
   scoreboard.sort((a, b) => b.puntos - a.puntos);
   return { scoreboard, personas };
@@ -1453,7 +1485,20 @@ async function loadView(name) {
           </div>
           <div class="ring-name">${p.nombre}</div>
           <div class="ring-trend ${trendClass}">${trendText}</div>
+          <div class="ring-streak">${p.racha > 0 ? '🔥 ' + p.racha + ' día' + (p.racha !== 1 ? 's' : '') : ''}</div>
         </div>`;
+      }).join("");
+
+      const statsRows = data.map(p => {
+        const color = PLAYER_COLORS[p.nombre] || "var(--clr-primary)";
+        const consist = elapsed > 0 ? Math.round((p.dias / elapsed) * 100) : 0;
+        return `<tr>
+          <td><span style="color:${color}">${AVATARS[p.nombre]||''}</span> ${p.nombre}</td>
+          <td>${p.racha > 0 ? p.racha + '🔥' : '0'}</td>
+          <td>${p.mejorRacha}</td>
+          <td>${p.dias}</td>
+          <td>${consist}%</td>
+        </tr>`;
       }).join("");
 
       document.getElementById("view-marcador").innerHTML = `
@@ -1464,6 +1509,13 @@ async function loadView(name) {
         <div class="reto-mini">
           <div class="reto-mini-label">Día ${Math.min(elapsed, totalDays)} de ${totalDays}</div>
           <div class="reto-mini-bar"><div class="reto-mini-fill" style="width:${retoPct}%"></div></div>
+        </div>
+        <div class="card-block" style="margin-bottom:12px">
+          <div class="block-title">ESTADÍSTICAS</div>
+          <table class="stats-table">
+            <thead><tr><th>Jugador</th><th>Racha</th><th>Mejor</th><th>Días</th><th>Consist.</th></tr></thead>
+            <tbody>${statsRows}</tbody>
+          </table>
         </div>
         <button class="reglas-btn" onclick="openInfoSheet()">ℹ️ Reglas</button>
         <p class="footer-note">Actualizado en tiempo real · Clawdio 🦞</p>`;
@@ -1486,26 +1538,11 @@ async function loadView(name) {
       const nombre = name.charAt(0).toUpperCase() + name.slice(1);
       const all = await fetchAllCSVData();
       const data = all.scoreboard;
-      const p = data.find(x => x.nombre === nombre) || {puntos:0, dias:0};
+      const p = data.find(x => x.nombre === nombre) || {puntos:0, dias:0, racha:0, mejorRacha:0};
       const avg = p.dias > 0 ? (p.puntos/p.dias).toFixed(1) : "0.0";
       const rows = all.personas[nombre] || [];
-
-      // Streak calc: consecutive days backwards from today (or yesterday if today not logged)
-      const retoStartDate = RETO_START;
-      const retoEndDate = RETO_END;
-      const todayDate = new Date(); todayDate.setHours(0,0,0,0);
-      let rachaActual = 0;
-      if (todayDate >= retoStartDate) {
-        const activeDateSet = new Set(rows.filter(r => r.total > 0).map(r => r.fecha));
-        let checkDate = new Date(Math.min(todayDate.getTime(), retoEndDate.getTime()));
-        let ds = checkDate.toISOString().split("T")[0];
-        if (!activeDateSet.has(ds)) checkDate.setDate(checkDate.getDate() - 1);
-        while (checkDate >= retoStartDate) {
-          ds = checkDate.toISOString().split("T")[0];
-          if (activeDateSet.has(ds)) { rachaActual++; checkDate.setDate(checkDate.getDate() - 1); }
-          else break;
-        }
-      }
+      const rachaActual = p.racha || 0;
+      const mejorRacha = p.mejorRacha || 0;
 
       const logRows = rows.slice(-7).reverse().map((r, idx) => {
         const bonusPills = parseBonusPills(r.bonus);
@@ -1528,8 +1565,9 @@ async function loadView(name) {
             <div class="hero-number" data-count-to="${p.puntos}">${p.puntos}</div>
             <div class="hero-label">pts totales</div>
             <div class="hero-stats">
-              <span class="hero-stat">🔥 Racha: ${rachaActual} días</span>
-              <span class="hero-stat">📅 ${p.dias} días activos</span>
+              <span class="hero-stat">🔥 Racha: ${rachaActual}</span>
+              <span class="hero-stat">⭐ Mejor: ${mejorRacha}</span>
+              <span class="hero-stat">📅 ${p.dias} días</span>
             </div>
           </div>
         </div>
@@ -1537,7 +1575,7 @@ async function loadView(name) {
           <div class="stat-card"><div class="stat-num" style="color:${playerColor}" data-count-to="${p.puntos}">${p.puntos}</div><div class="stat-label">Puntos totales</div></div>
           <div class="stat-card"><div class="stat-num" style="color:${playerColor}" data-count-to="${p.dias}">${p.dias}</div><div class="stat-label">Días activos</div></div>
           <div class="stat-card"><div class="stat-num" style="color:${playerColor}" data-count-to="${avg}">${avg}</div><div class="stat-label">Promedio / día</div></div>
-          <div class="stat-card"><div class="stat-num" style="color:${playerColor}" data-count-to="${rachaActual}" data-count-suffix="🔥">${rachaActual}🔥</div><div class="stat-label">Racha actual</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:${playerColor}" data-count-to="${mejorRacha}" data-count-suffix="🔥">${mejorRacha}🔥</div><div class="stat-label">Mejor racha</div></div>
         </div>
         ${buildRetoProgress(rows)}
         ${buildHeatmap(rows)}
