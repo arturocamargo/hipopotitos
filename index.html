@@ -245,7 +245,7 @@
   .heatmap-legend .heatmap-cell{width:12px;height:12px;flex-shrink:0}
 
   /* HEATMAP CELL COLORS */
-  .hm-0{background:#F3F4F6}.hm-1{background:#EDE9FE}.hm-2{background:#C4B5FD}.hm-3{background:#8B5CF6}.hm-4{background:#6D28D9}
+  .hm-0{background:#E5E7EB}.hm-1{background:#DDD6FE}.hm-2{background:#A78BFA}.hm-3{background:#7C3AED}.hm-4{background:#5B21B6}
 
   /* STATS TABLE (marcador) */
   .stats-table{width:100%;border-collapse:collapse}
@@ -1117,7 +1117,13 @@ function processCSV(text) {
     const name = (row[1] || '').trim();
     if (!PERSONAS.includes(name)) return;
     if (!byPerson[name]) byPerson[name] = [];
-    byPerson[name].push({ fecha: (row[2] || '').trim(), minutos: parseInt(row[3]) || 0, bonusStr: (row[4] || '').trim() });
+    const rawFecha = (row[2] || '').trim();
+    // Normalize M/D/YYYY → YYYY-MM-DD
+    const fechaParts = rawFecha.split('/');
+    const fecha = fechaParts.length === 3
+      ? `${fechaParts[2]}-${fechaParts[0].padStart(2,'0')}-${fechaParts[1].padStart(2,'0')}`
+      : rawFecha;
+    byPerson[name].push({ fecha, minutos: parseInt(row[3]) || 0, bonusStr: (row[4] || '').trim() });
   });
   const personas = {};
   const scoreboard = [];
