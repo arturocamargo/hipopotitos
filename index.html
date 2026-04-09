@@ -798,8 +798,9 @@ const CONFIG = {
   // Scoring thresholds (minutes)
   scoring: {
     min1pt: 15,   // minutes for 1 base point
-    min2pt: 45,   // minutes for 2 base points
-    maxPerDay: 4  // total daily cap
+    min2pt: 45,   // minutes for 2 base points (v1 compat)
+    min3pt: 60,   // minutes for 3 base points
+    maxPerDay: 4  // daily cap (base 3 + estructurado 1)
   },
 
   // Theme (primary color — players have individual colors above)
@@ -888,28 +889,24 @@ const TOTAL_DAYS = Math.round((RETO_END - new Date(CONFIG.startDate)) / 864e5);
     sheetBody.innerHTML =
       '<div class="sh-title">' + CONFIG.appEmoji + ' ' + CONFIG.appName + '</div>' +
       '<div class="sh-subtitle">' + sl + ' – ' + el + ' · ' + weeks + ' semanas · ' + TOTAL_DAYS + ' días</div>' +
-      '<div class="sh-section"><div class="sh-section-title">🏋️ Actividad base</div>' +
-      '<div class="score-row"><span class="score-row-label">' + CONFIG.scoring.min1pt + '–' + (CONFIG.scoring.min2pt - 1) + ' min</span><span class="score-badge light">1 pt</span></div>' +
-      '<div class="score-row"><span class="score-row-label">' + CONFIG.scoring.min2pt + '+ min</span><span class="score-badge primary">2 pts</span></div>' +
+      '<div class="sh-section"><div class="sh-section-title">🏋️ Movimiento</div>' +
+      '<div class="score-row"><span class="score-row-label">15–44 min</span><span class="score-badge light">1 pt</span></div>' +
+      '<div class="score-row"><span class="score-row-label">45–59 min</span><span class="score-badge primary">2 pts</span></div>' +
+      '<div class="score-row"><span class="score-row-label">60+ min</span><span class="score-badge primary">3 pts</span></div>' +
+      '<div class="score-row"><span class="score-row-label">10K pasos (sin ejercicio)</span><span class="score-badge light">1 pt</span></div>' +
       '<div class="score-row"><span class="score-row-label">Sin actividad</span><span class="score-badge muted">0 pts</span></div></div>' +
-      '<div class="sh-section"><div class="sh-section-title">⚡ Bonuses fijos (+1 pt c/u)</div>' +
+      '<div class="sh-section"><div class="sh-section-title">⚡ Bono diario</div>' +
       '<div class="bonus-grid-3">' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">💪</span><div><div class="bonus-card-name">Ejercicio estructurado</div><div class="bonus-card-desc">gym, cardio, clase, nado — no solo caminar</div></div></div>' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">📸</span><div><div class="bonus-card-name">Foto first</div><div class="bonus-card-desc">primer@ en mandar evidencia al grupo ese día, desde 7am</div></div></div>' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">🔥</span><div><div class="bonus-card-name">Racha 7 días</div><div class="bonus-card-desc">se activa automáticamente al cumplir 7 días seguidos</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">💪</span><div><div class="bonus-card-name">Ejercicio estructurado +1 pt</div><div class="bonus-card-desc">gym, cardio, clase, nado — solo si hubo actividad</div></div></div>' +
       '</div></div>' +
-      '<div class="sh-section"><div class="sh-section-title">➕ Bonuses adicionales (máx 2 pts/día)</div>' +
+      '<div class="sh-section"><div class="sh-section-title">📅 Bonos semanales (cada domingo)</div>' +
       '<div class="bonus-grid-3">' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">💧</span><div><div class="bonus-card-name">Agua</div><div class="bonus-card-desc">mín 2.5–3L</div></div></div>' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">😴</span><div><div class="bonus-card-name">Sueño</div><div class="bonus-card-desc">mín 7 horas</div></div></div>' +
-      '<div class="bonus-card-wide"><span class="bonus-card-icon">👟</span><div><div class="bonus-card-name">10,000 pasos</div><div class="bonus-card-desc">solo si NO hiciste ejercicio estructurado ese día</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">🔥</span><div><div class="bonus-card-name">Racha perfecta +3 pts</div><div class="bonus-card-desc">7 días activos en la semana sin fallar uno</div></div></div>' +
+      '<div class="bonus-card-wide"><span class="bonus-card-icon">💧😴</span><div><div class="bonus-card-name">Hábitos +2 pts</div><div class="bonus-card-desc">Agua + sueño ≥5 de 7 días. Solo uno = +1 pt</div></div></div>' +
       '</div></div>' +
       '<div class="sh-section"><div class="sh-section-title">🏆 Máximo</div>' +
-      '<div class="sh-callout"><div class="sh-callout-big">' + CONFIG.scoring.maxPerDay + ' pts / día</div>' +
-      '<div class="sh-callout-note">2 pts base + hasta 2 pts de bonuses adicionales</div></div></div>' +
-      '<div class="sh-section"><div class="sh-section-title">🔥 Racha</div>' +
-      '<div style="background:var(--clr-surface-muted);border-radius:var(--r-md);padding:var(--sp-4);font-size:var(--font-sm);color:var(--clr-text);line-height:1.6">' +
-      'Días consecutivos con al menos <strong>1 punto</strong>.<br>Se corta si un día termina con <strong>0 pts</strong>.<br>La racha la calcula Clawdio automáticamente.</div></div>' +
+      '<div class="sh-callout"><div class="sh-callout-big">4 pts / día · +5 pts / semana</div>' +
+      '<div class="sh-callout-note">60min (3pts) + ejercicio estructurado (1pt) · Racha (3) + hábitos (2)</div></div></div>' +
       '<div class="sh-section"><div class="sh-section-title">🎯 Las apuestas</div>' +
       '<div class="stakes-grid">' + stakes + '</div>' +
       '<div class="sh-tiebreaker">Empate → gana quien tuvo la racha más larga</div></div>' +
@@ -1081,31 +1078,68 @@ function parseCSV(text) {
 }
 
 function calcDailyScore(minutes, bonusStr) {
+  // v2 scoring: movement only, no foto, no agua/sueño daily bonuses
   const lower = (bonusStr || '').toLowerCase();
   const hasEjercicio = lower.includes('ejercicio estructurado');
   const hasPasos = (lower.includes('10k') || lower.includes('10,000') || lower.includes('10000') || lower.includes('pasos')) && !hasEjercicio;
 
-  // Base: activity minutes OR 10K pasos (as movement substitute, no gym)
-  let base = minutes >= CONFIG.scoring.min2pt ? 2 : minutes >= CONFIG.scoring.min1pt ? 1 : 0;
-  if (base === 0 && hasPasos) base = 1; // 10K pasos counts as 1pt base if no other activity
+  // Base: 1pt (15-44min), 2pts (45-59min), 3pts (60+min)
+  let base = minutes >= CONFIG.scoring.min3pt ? 3
+           : minutes >= CONFIG.scoring.min2pt ? 2
+           : minutes >= CONFIG.scoring.min1pt ? 1 : 0;
+  // 10K pasos without exercise = 1pt base
+  if (base === 0 && hasPasos) base = 1;
 
-  // No movement at all = 0 pts, bonuses don't apply
+  // No movement at all = 0 pts
   if (base === 0) return 0;
 
-  // Fixed bonuses (only if there's activity)
-  let fixed = 0;
-  if (hasEjercicio) fixed += 1;
-  if (lower.includes('foto first') || lower.includes('foto post') || lower.includes('primero al grupo')) fixed += 1;
+  // +1 for structured exercise (only if there's base activity)
+  const fixed = hasEjercicio ? 1 : 0;
 
-  // Adicionales (max 2, only if there's activity)
-  let adicionales = 0;
-  if (lower.includes('agua')) adicionales += 1;
-  if (lower.includes('sueño') || lower.includes('sueno') || lower.includes('dorm')) adicionales += 1;
-  // Pasos as adicional: only if base came from minutes (not from pasos itself)
-  if (hasPasos && minutes > 0) adicionales += 1;
-  adicionales = Math.min(adicionales, 2);
+  // 10K pasos as +1 if base came from minutes (not pasos itself)
+  const pasosBonus = (hasPasos && minutes > 0) ? 1 : 0;
 
-  return Math.min(base + fixed + adicionales, CONFIG.scoring.maxPerDay);
+  return Math.min(base + fixed + pasosBonus, CONFIG.scoring.maxPerDay);
+}
+
+function calcWeeklyBonuses(personRows) {
+  // Group rows by ISO week (Mon-Sun)
+  const weeks = {};
+  personRows.forEach(r => {
+    const d = new Date(r.fecha);
+    // Get Monday of this week
+    const day = d.getDay(); // 0=Sun
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + mondayOffset);
+    const wk = monday.toISOString().split('T')[0];
+    if (!weeks[wk]) weeks[wk] = [];
+    weeks[wk].push(r);
+  });
+
+  let totalBonus = 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  Object.keys(weeks).forEach(wk => {
+    const wkStart = new Date(wk);
+    const wkEnd = new Date(wk); wkEnd.setDate(wkEnd.getDate() + 6);
+    // Only count completed weeks (Sunday has passed)
+    if (wkEnd >= today) return;
+
+    const rows = weeks[wk];
+    // Streak bonus: 7 days active in the week
+    const activeDays = rows.filter(r => r.total > 0).length;
+    if (activeDays === 7) totalBonus += 3;
+
+    // Agua + sueño ≥5 days
+    const lower = rows.map(r => (r.bonus || '').toLowerCase());
+    const aguaDays = lower.filter(b => b.includes('agua')).length;
+    const suenoDays = lower.filter(b => b.includes('sueño') || b.includes('sueno') || b.includes('dorm')).length;
+    if (aguaDays >= 5 && suenoDays >= 5) totalBonus += 2;
+    else if (aguaDays >= 5 || suenoDays >= 5) totalBonus += 1;
+  });
+
+  return totalBonus;
 }
 
 function processCSV(text) {
@@ -1145,16 +1179,13 @@ function processCSV(text) {
         const diffDays = Math.round((new Date(date) - new Date(lastDate)) / 86400000);
         if (diffDays > 1) streak = 0;
       }
-      let score = calcDailyScore(entry.minutos, entry.bonusStr);
-      let streakBonus = 0;
+      const score = calcDailyScore(entry.minutos, entry.bonusStr);
       if (score > 0) {
         streak++;
-        if (streak === 7) streakBonus = 1;
         if (streak > bestStreak) bestStreak = streak;
       } else {
         streak = 0;
       }
-      score = Math.min(score + streakBonus, CONFIG.scoring.maxPerDay);
       totalPts += score;
       if (score > 0) activeDays++;
       personRows.push({ fecha: date, minutos: String(entry.minutos), total: score, bonus: entry.bonusStr });
@@ -1175,8 +1206,9 @@ function processCSV(text) {
       }
     }
 
+    const weeklyBonus = calcWeeklyBonuses(personRows);
     personas[name] = personRows;
-    scoreboard.push({ nombre: name, puntos: totalPts, dias: activeDays, racha: currentStreak, mejorRacha: bestStreak });
+    scoreboard.push({ nombre: name, puntos: totalPts + weeklyBonus, puntosBase: totalPts, bonusSemanal: weeklyBonus, dias: activeDays, racha: currentStreak, mejorRacha: bestStreak });
   });
   scoreboard.sort((a, b) => b.puntos - a.puntos);
   return { scoreboard, personas };
